@@ -169,7 +169,7 @@ class TaskController extends Controller
             $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time from user_taskmanage where user_id=:user_id',$param);
             
             //コロナapi呼び出し
-            $command = "python ../app/Http/Controllers/api.py";
+            $command = "python3 ../app/Http/Controllers/api.py";
             exec($command , $outputs);
             $data = mb_convert_encoding($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
 
@@ -242,7 +242,7 @@ class TaskController extends Controller
         }   
         
         //コロナapi呼び出し
-        $command = "python ../app/Http/Controllers/api.py";
+        $command = "python3 ../app/Http/Controllers/api.py";
         exec($command , $outputs);
         $data = mb_convert_encoding($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
 
@@ -342,9 +342,9 @@ class TaskController extends Controller
     //python呼び出し
     public function taskocr(Request $request){
         if(strpos($request->file_name,'pdf') !== false){
-            $command = "python ../app/Http/Controllers/ocr.py ".$request->file_name;
+            $command = "python3 ../app/Http/Controllers/ocr.py ".$request->file_name;
         }else{
-            $command = "python ../app/Http/Controllers/pictureocr.py ".$request->file_name;
+            $command = "python3 ../app/Http/Controllers/pictureocr.py ".$request->file_name;
         }
         exec($command , $outputs);
         $data = mb_convert_encoding ($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
@@ -361,7 +361,7 @@ class TaskController extends Controller
 
     //住所取得
     public function taskgetzipcode(Request $request){
-        $command = "python ../app/Http/Controllers/zipcodeapi.py ".$request->zipcode;
+        $command = "python3 ../app/Http/Controllers/zipcodeapi.py ".$request->zipcode;
         exec($command , $outputs);
         $data = mb_convert_encoding ($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
 
