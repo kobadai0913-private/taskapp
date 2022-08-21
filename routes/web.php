@@ -211,3 +211,25 @@ Route::post('task/ocr', 'App\Http\Controllers\TaskController@taskocr');
 //住所検索
 Route::get('task/zipcode', 'App\Http\Controllers\TaskController@taskzipcode');
 Route::post('task/zipcode', 'App\Http\Controllers\TaskController@taskgetzipcode');
+
+//管理者ログイン
+Route::get('login/admin', 'App\Http\Controllers\AppUserController@loginadmin');
+Route::post('login/admin', 'App\Http\Controllers\AppUserController@loginadmin_p');
+
+//ユーザ一覧画面
+Route::get('administrator', 'App\Http\Controllers\AppUserController@useradmin');
+
+//ユーザ削除
+Route::get('user/delete/{user_id?}', 'App\Http\Controllers\AppUserController@userdelete');
+
+//ユーザ修正画面
+Route::get('user/fix/{user_id?}', 'App\Http\Controllers\AppUserController@userfix');
+Route::post('user/fix/{user_id?}', 'App\Http\Controllers\AppUserController@userfix_create');
+
+//タスク完了更新
+Route::get('task/success/{task_id?}', 'App\Http\Controllers\TaskController@tasksuccess');
+
+//タスク完了取消
+Route::get('task/successdenger/{task_id?}', 'App\Http\Controllers\TaskController@tasksuccessdenger');
+
+

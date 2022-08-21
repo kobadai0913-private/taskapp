@@ -11335,3 +11335,19 @@ table {
   text-align: center;
   margin: auto; 
 }
+
+.table-hover {
+  counter-reset: rowCount;
+}
+
+.table-hover > tbody > tr {
+  counter-increment: rowCount;
+}
+
+.table-hover > tbody > tr > td:first-child::before {
+  content: counter(rowCount);
+}
+
+.successd{
+  background-color: rgb(252, 195, 195);
+}

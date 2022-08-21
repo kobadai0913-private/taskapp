@@ -2,14 +2,14 @@
 
 @section('content')
 <div class="form-wrapper">
-  <h1>ログイン</h1>
+  <h1>管理者としてログイン</h1>
   @if(session('login_errors'))
         <div style="color:red">※{{session('login_errors')}}</div>
   @endif 
   @if(session('insert_message'))
         <div style="color:blue">※{{session('insert_message')}}</div>
   @endif 
-  <form action="/task" method="post">
+  <form action="/login/admin" method="post">
     @csrf
     <div class="form-item">
       <label for="email">E-Mail</label>
@@ -32,9 +32,8 @@
     <div class="button-panel">
       <input type="submit" class="button" value="ログイン"></input>
     </div>
-  </form>
-  <div class="form-footer">
-    <p><a href="/login/insert">新規会員登録はこちら</a></p>
-    <p><a href="/login/admin">管理者画面へ</a></p>
+    <div class="form-footer">
+    <p><a href="/task/">ログインに戻る</a></p>
   </div>
+  </form>
 </div>

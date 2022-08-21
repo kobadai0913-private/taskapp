@@ -31,7 +31,7 @@ class TaskController extends Controller
         $rules = [
             'task_name' => 'required',
             'task_detail' => 'required',
-            'task_date' => 'required|after:today|date_format:Y年m月d日',
+            'task_date' => 'required|after:yesterday|date_format:Y年m月d日',
             'task_time' => 'required|date_format:H時i分',
         ];
         $messages=[
@@ -101,7 +101,7 @@ class TaskController extends Controller
         $rules = [
             'task_name' => 'required',
             'task_detail' => 'required',
-            'task_date' => 'required|after:today|date_format:Y年m月d日',
+            'task_date' => 'required|after:yesterday|date_format:Y年m月d日',
             'task_time' => 'required|date_format:H時i分',
         ];
     
@@ -150,8 +150,9 @@ class TaskController extends Controller
             'task_detail' => $request->task_detail,
             'task_date' => $date,
             'task_time' => $date,
+            'completed' => 'incomplete',
         ];
-        DB::insert('insert into user_taskmanage values(:task_id, :task_name, :task_detail, :task_date, :task_time, :user_id)',$param);
+        DB::insert('insert into user_taskmanage values(:task_id, :task_name, :task_detail, :task_date, :task_time, :user_id, :completed)',$param);
         $request->session()->flash('insert_message', 'タスクを追加しました。');
         
         //タスク一覧画面に遷移
@@ -160,24 +161,48 @@ class TaskController extends Controller
 
     //タスク一覧(get)
     public function taskapp(Request $request){
-            $user_id = $request->session()->get('user_id');
+        $user_id = $request->session()->get('user_id');
+        $param = [
+            "user_id" => $user_id,
+        ];
+        $admin = DB::select('select admin from user where user_id=:user_id',$param);
+        if($admin[0]->admin == "admin"){
+            $param = [
+                "day" => '%Y年%m月%d日',
+                "time" => '%k時%i分',
+            ];
+            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, user_id, completed from user_taskmanage order by user_id',$param);
+        }else{
             $param = [
                 "user_id" => $user_id,
                 "day" => '%Y年%m月%d日',
                 "time" => '%k時%i分',
             ];
-            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time from user_taskmanage where user_id=:user_id',$param);
-            
-            //コロナapi呼び出し
-            $command = "python ../app/Http/Controllers/api.py";
-            exec($command , $outputs);
-            $data = mb_convert_encoding($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
+            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, completed from user_taskmanage where user_id=:user_id',$param);
+        }
+        
+        //コロナapi呼び出し
+        // APIアクセスURL
+        $url = 'https://covid19-japan-web-api.now.sh/api/v1/prefectures';
+        // ストリームコンテキストのオプションを作成
+        $options = array(
+            // HTTPコンテキストオプションをセット
+            'http' => array(
+                'method'=> 'GET',
+                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
+            )
+        );
+        // ストリームコンテキストの作成
+        $context = stream_context_create($options);
+        $raw_data = file_get_contents($url, false,$context);
+        $result = json_decode($raw_data, true);
+        $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
 
-            //現在時間取得
-            $date = date("Y年m月d日 H時i分s秒"); 
+        //現在時間取得
+        $date = date("Y年m月d日 H時i分s秒"); 
 
-            //タスク一覧画面に遷移
-            return view('task.tasktop',['tasks'=>$items, 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
+        //タスク一覧画面に遷移
+        return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
     }
 
     //タスク削除(get)
@@ -228,29 +253,51 @@ class TaskController extends Controller
         if($item==null){
             $request->session()->flash('login_errors', '入力項目に問題があります。');
             return redirect('/task');
+        }
+        foreach($item as $it){
+            $user_id = $it->user_id;
+        }
+        $request->session()->put('user_id', $user_id);
+        $param = [
+            "user_id" => $user_id,
+        ];
+        $admin = DB::select('select admin from user where user_id=:user_id',$param);
+        if($admin[0]->admin == "admin"){
+            $param = [
+                "day" => '%Y年%m月%d日',
+                "time" => '%k時%i分',
+            ];
+            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, user_id, completed from user_taskmanage order by user_id',$param);
         }else{
-            foreach($item as $it){
-                $user_id = $it->user_id;
-            }
             $param = [
                 "user_id" => $user_id,
                 "day" => '%Y年%m月%d日',
                 "time" => '%k時%i分',
             ];
-            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time from user_taskmanage where user_id=:user_id',$param);
-            $request->session()->put('user_id', $user_id);
-        }   
-        
-        //コロナapi呼び出し
-        $command = "python ../app/Http/Controllers/api.py";
-        exec($command , $outputs);
-        $data = mb_convert_encoding($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
+            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, completed from user_taskmanage where user_id=:user_id',$param);
+        }
+
+        // APIアクセスURL
+        $url = 'https://covid19-japan-web-api.now.sh/api/v1/prefectures';
+        // ストリームコンテキストのオプションを作成
+        $options = array(
+            // HTTPコンテキストオプションをセット
+            'http' => array(
+                'method'=> 'GET',
+                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
+            )
+        );
+        // ストリームコンテキストの作成
+        $context = stream_context_create($options);
+        $raw_data = file_get_contents($url, false,$context);
+        $result = json_decode($raw_data, true);
+        $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
 
         //現在時間取得
         $date = date("Y年m月d日 H時i分s秒"); 
 
         //タスク一覧画面に遷移
-        return view('task.tasktop',['tasks'=>$items, 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
+        return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
 
     }
 
@@ -321,13 +368,25 @@ class TaskController extends Controller
         foreach($items as $item){
             $data[] = [$item->task_id,$item->task_name,$item->task_detail,$item->task_date,$item->task_time];
         }
-        $save_file = '../csv/task.csv';
+        $save_file = 'C:\task.csv';
         $file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
         $file->setCsvControl(",");                   // カンマ区切り
         foreach ($data as $row) {
             mb_convert_variables('SJIS', 'UTF-8', $row);
             $file->fputcsv($row);
         }
+
+        // 出力バッファをopen
+        $stream = fopen('php://output', 'w');
+        // 文字コードをShift-JISに変換
+        stream_filter_prepend($stream,'convert.iconv.utf-8/cp932//TRANSLIT');
+        // ヘッダー
+        fputcsv($stream, ['No', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間']);
+        // データ
+        foreach ($items as $item) {
+            fputcsv($stream, [$item->task_id,$item->task_name,$item->task_detail,$item->task_date,$item->task_time]);
+        }
+        fclose($stream);
         $request->session()->flash('csvoutput_message', 'csv出力が完了しました。');
         //タスク一覧画面に遷移
         return redirect('/task/app');
@@ -361,11 +420,52 @@ class TaskController extends Controller
 
     //住所取得
     public function taskgetzipcode(Request $request){
-        $command = "python ../app/Http/Controllers/zipcodeapi.py ".$request->zipcode;
-        exec($command , $outputs);
-        $data = mb_convert_encoding ($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
+        // APIアクセスURL
+        $url = 'http://zipcloud.ibsnet.co.jp/api/search?zipcode='.$request->zipcode;
+        // ストリームコンテキストのオプションを作成
+        $options = array(
+            // HTTPコンテキストオプションをセット
+            'http' => array(
+                'method'=> 'GET',
+                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
+            )
+        );
+        // ストリームコンテキストの作成
+        $context = stream_context_create($options);
+        $raw_data = file_get_contents($url, false,$context);
+        $result = json_decode($raw_data, true);
+
+        $data1 = [$result["results"][0]["address1"].$result["results"][0]["address2"].$result["results"][0]["address3"]];
+        $data2 = [$result["results"][0]["kana1"].$result["results"][0]["kana2"].$result["results"][0]["kana3"]];
+        $resultdata = array_merge($data1,$data2);
 
         //ocr画面に遷移
-        return view('task.taskzipcode', ['zipcode' => $data]);
+        return view('task.taskzipcode', ['zipcode' => $resultdata]);
+    }
+
+    //タスク完了更新処理
+    public function tasksuccess(Request $request){
+        $param = [
+            'task_id' => $request->task_id,
+            'completed' => 'complete',
+        ];
+        DB::update('update user_taskmanage set completed = :completed where task_id = :task_id ',$param);
+        $request->session()->flash('completed_message', 'タスクを完了済みに更新しました。');
+        
+        //タスク一覧画面に遷移
+        return redirect('/task/app');
+    }
+
+    //タスク完了取消処理
+    public function tasksuccessdenger(Request $request){
+        $param = [
+            'task_id' => $request->task_id,
+            'completed' => 'incomplete',
+        ];
+        DB::update('update user_taskmanage set completed = :completed where task_id = :task_id ',$param);
+        $request->session()->flash('incomplete_message', 'タスクの完了を取り消しました');
+        
+        //タスク一覧画面に遷移
+        return redirect('/task/app');
     }
 }
