@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\MailController;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -231,5 +233,8 @@ Route::get('task/success/{task_id?}', 'App\Http\Controllers\TaskController@tasks
 
 //タスク完了取消
 Route::get('task/successdenger/{task_id?}', 'App\Http\Controllers\TaskController@tasksuccessdenger');
+
+//メール送信テスト
+Route::get('mail/{user_id?}', 'App\Http\Controllers\MailSendController@postPurchaseComplete');
 
 

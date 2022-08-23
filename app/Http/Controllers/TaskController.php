@@ -20,7 +20,10 @@ class TaskController extends Controller
             "time" => '%k時%i分',
         ];
         $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time from user_taskmanage where task_id = :task_id',$param);
-        
+        $test = DB::table('user')->select('user_id');
+        foreach($test as $data){
+            print_r($data->user_id);
+        }
         //タスク修正画面に遷移
         return view('task.taskfix',['tasks'=>$items]);
     }
@@ -335,6 +338,7 @@ class TaskController extends Controller
             ->select('user_id')
             ->orderBy('user_id','desc')
             ->first();
+            
         if($maxId==null){
             $user_id = 1;
         }else{
