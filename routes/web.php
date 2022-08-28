@@ -2,8 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\MailController;
-
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -211,12 +209,15 @@ Route::get('task/ocr', 'App\Http\Controllers\TaskController@taskocr_p');
 Route::post('task/ocr', 'App\Http\Controllers\TaskController@taskocr');
 
 //住所検索
-Route::get('task/zipcode', 'App\Http\Controllers\TaskController@taskzipcode');
-Route::post('task/zipcode', 'App\Http\Controllers\TaskController@taskgetzipcode');
+Route::get('task/zipcode/{task_id?}', 'App\Http\Controllers\TaskController@taskzipcode');
+Route::post('task/zipcode/{task_id?}', 'App\Http\Controllers\TaskController@taskgetzipcode');
 
 //管理者ログイン
 Route::get('login/admin', 'App\Http\Controllers\AppUserController@loginadmin');
 Route::post('login/admin', 'App\Http\Controllers\AppUserController@loginadmin_p');
+
+//管理者権限ログイン
+Route::get('login/admin/user/{user_id?}', 'App\Http\Controllers\AppUserController@userlogin');
 
 //ユーザ一覧画面
 Route::get('administrator', 'App\Http\Controllers\AppUserController@useradmin');
@@ -236,5 +237,3 @@ Route::get('task/successdenger/{task_id?}', 'App\Http\Controllers\TaskController
 
 //メール送信テスト
 Route::get('mail/{user_id?}', 'App\Http\Controllers\MailSendController@postPurchaseComplete');
-
-

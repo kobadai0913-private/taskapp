@@ -68,12 +68,14 @@ class AppUserController extends Controller
 
     //ユーザ削除(get)
     public function userdelete(Request $request){
+        $login_userid = $request->session()->get('user_id');
         $param = [
             'user_id' => $request->user_id,
         ];
         DB::delete('delete from user where user_id = :user_id',$param);
         DB::update('update user set user_id = user_id - 1 where user_id > :user_id ',$param);
         $request->session()->flash('delete_message', 'ユーザを削除しました。');
+        $request->session()->put('user_id', $login_userid);
         
         //ユーザ一覧画面に遷移
         return redirect('/administrator');
@@ -129,6 +131,44 @@ class AppUserController extends Controller
         
         //ユーザ一覧に画面遷移する
         return redirect('/administrator');
+    }
+
+    //管理者ユーザログイン(get)
+    public function userlogin(Request $request){
+        $request->session()->put('user_id', $request->user_id);
+        $param = [
+            "user_id" => $request->user_id,
+        ];
+        $admin = DB::select('select admin from user where user_id=:user_id',$param);
+        $param = [
+            "user_id" => $request->user_id,
+            "day" => '%Y年%m月%d日',
+            "time" => '%k時%i分',
+        ];
+        $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, completed from user_taskmanage where user_id=:user_id',$param);
+        
+        //コロナapi呼び出し
+        // APIアクセスURL
+        $url = 'https://covid19-japan-web-api.now.sh/api/v1/prefectures';
+        // ストリームコンテキストのオプションを作成
+        $options = array(
+            // HTTPコンテキストオプションをセット
+            'http' => array(
+                'method'=> 'GET',
+                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
+            )
+        );
+        // ストリームコンテキストの作成
+        $context = stream_context_create($options);
+        $raw_data = file_get_contents($url, false,$context);
+        $result = json_decode($raw_data, true);
+        $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
+
+        //現在時間取得
+        $date = date("Y年m月d日 H時i分s秒"); 
+
+        //タスク一覧画面に遷移
+        return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$request->user_id, 'api'=>$data, 'date'=>$date]);
     }
 
 

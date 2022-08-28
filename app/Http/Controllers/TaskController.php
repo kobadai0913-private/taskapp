@@ -169,6 +169,8 @@ class TaskController extends Controller
             "user_id" => $user_id,
         ];
         $admin = DB::select('select admin from user where user_id=:user_id',$param);
+
+        
         if($admin[0]->admin == "admin"){
             $param = [
                 "day" => '%Y年%m月%d日',
@@ -205,7 +207,8 @@ class TaskController extends Controller
         $date = date("Y年m月d日 H時i分s秒"); 
 
         //タスク一覧画面に遷移
-        return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
+        // return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
+        return view('task.tasktop',['user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
     }
 
     //タスク削除(get)
@@ -392,6 +395,7 @@ class TaskController extends Controller
         }
         fclose($stream);
         $request->session()->flash('csvoutput_message', 'csv出力が完了しました。');
+
         //タスク一覧画面に遷移
         return redirect('/task/app');
     }

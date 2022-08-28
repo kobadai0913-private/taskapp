@@ -34,6 +34,9 @@
                         <div>
                         <a class="btn btn-danger" href="/user/delete/{{$data->user_id}}" role="button" style="margin: 20px;">削除</a>
                         <a class="btn btn-primary" href="/user/fix/{{$data->user_id}}" role="button" style="margin: 20px;">修正</a>
+                        @if($data->admin != "admin")
+                            <a class="btn btn-primary" href="/login/admin/user/{{$data->user_id}}" role="button" style="margin: 20px;">ログイン</a>
+                        @endif
                         </div>
                     </td>
                 </tr>

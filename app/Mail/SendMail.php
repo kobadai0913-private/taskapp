@@ -19,13 +19,14 @@ class SendMail extends Mailable
      *
      * @return void
      */
-    public function __construct($user_name, $text, $email, $data)
+    public function __construct($user_name, $email, $today_task, $old_task, $admin)
     {
         $this->title = sprintf('%s様', $user_name);
-        $this->text = $text;
         $this->email = $email;
         $this->name = $user_name;
-        $this->data = $data;
+        $this->today_task = $today_task;
+        $this->old_task = $old_task;
+        $this->admin = $admin;
     }
 
     /**
@@ -35,12 +36,24 @@ class SendMail extends Mailable
      */
     public function build()
     {
-        return $this->view('mail.mailsend')
+        if($this->admin == "admin"){
+            return $this->view('mail.admin_mailsend')
                     ->to($this->email, $this->name)
                     ->subject($this->title)
+                    ->attach(storage_path('task.csv'))
                     ->with([
-                        'text' => $this->text,
-                        'tasks' => $this->data,
+                        'today_task' => $this->today_task,
+                        'old_task' => $this->old_task,
                       ]);
+        }else{
+            return $this->view('mail.mailsend')
+                    ->to($this->email, $this->name)
+                    ->subject($this->title)
+                    ->attach(storage_path('task.csv'))
+                    ->with([
+                        'today_task' => $this->today_task,
+                        'old_task' => $this->old_task,
+                      ]);    
+        }
     }
 }
