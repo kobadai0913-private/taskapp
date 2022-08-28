@@ -202,15 +202,15 @@ Route::get('login/insert', 'App\Http\Controllers\TaskController@logininsert');
 Route::post('login/insert', 'App\Http\Controllers\TaskController@loginsucsess');
 
 //csv出力
-Route::get('task/csv/{user_id?}', 'App\Http\Controllers\TaskController@taskcsv');
+Route::get('task/csv', 'App\Http\Controllers\TaskController@taskcsv');
 
 //OCR
 Route::get('task/ocr', 'App\Http\Controllers\TaskController@taskocr_p');
 Route::post('task/ocr', 'App\Http\Controllers\TaskController@taskocr');
 
 //住所検索
-Route::get('task/zipcode/{task_id?}', 'App\Http\Controllers\TaskController@taskzipcode');
-Route::post('task/zipcode/{task_id?}', 'App\Http\Controllers\TaskController@taskgetzipcode');
+Route::get('task/zipcode', 'App\Http\Controllers\TaskController@taskzipcode');
+Route::post('task/zipcode', 'App\Http\Controllers\TaskController@taskgetzipcode');
 
 //管理者ログイン
 Route::get('login/admin', 'App\Http\Controllers\AppUserController@loginadmin');

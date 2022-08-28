@@ -8,7 +8,10 @@
     @if(session('update_message'))
         <div class="alert alert-primary">{{session('update_message')}}</div>
     @endif 
-    <h5 class="card-header">ユーザ一覧</h5>  
+    <h5 class="card-header">ユーザ一覧</h5> 
+    @if(session('userdeleteerror_message'))
+    <div style="color:red">※{{session('userdeleteerror_message')}}</div>
+    @endif  
         <table class="table table-hover">
             <thead>
             <tr>

@@ -11,7 +11,7 @@ use App\Mail\SendMail;
 class MailSendController extends Controller
 {
 	public function postPurchaseComplete(Request $request){
-		$user_id = $request->user_id;
+		$user_id = $request->session()->get('user_id');
 		$items = [];
 		$today_task=array();
 		$old_task=array();

@@ -7,6 +7,11 @@
     <div class="collapse navbar-collapse" id="Navber">
   
       <ul class="navbar-nav ml-auto mr-5">
+        @if(session('admin_flg') == true)
+          <li class="nav-item ml-2">
+            <a class="nav-link text-white" id="register" href="/administrator/">ユーザ一覧画面へ</a>
+          </li>
+        @endif
         <li class="nav-item ml-2">
           <a class="nav-link text-white" id="register" href="/task/">ログアウト</a>
         </li>

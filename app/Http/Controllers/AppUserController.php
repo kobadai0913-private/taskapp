@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Validator;
 use Timestamp;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\TaskController;
 
 class AppUserController extends Controller
 {
@@ -46,36 +47,42 @@ class AppUserController extends Controller
         if(empty($items)||($items[0]->admin != 'admin')){
             $request->session()->flash('login_errors', '管理者アカウントではありません。管理者アカウントで再度ログインしてください。');
             return redirect('/login/admin');
-        }else{
-            $param = [
-                'user_pass' => $request->password,
-                'user_email' => $request->email,
-            ];
-            $items = DB::select('select user_id, user_pass, user_name, user_email, admin from user order by user_id');
-            $user = DB::select('select user_id from user where user_pass = :user_pass and user_email = :user_email',$param);
-            $request->session()->put('user_id', $user[0]->user_id);
-        }   
-        //ユーザ一覧画面に遷移
-        return view('appusers.usersadmin', ['userdata' => $items]);
+        }
+        
+        //ユーザ一覧画面遷移
+        return self::useradmin($request);
     }
 
-    //ユーザ管理画面(post)
-    public function useradmin(){
+    //ユーザ管理画面(get)
+    public function useradmin(Request $request){
+        $param = [
+            "admin" => "admin",
+        ];
+        $user = DB::select('select user_id, admin from user where admin = :admin',$param);
+
         $items = DB::select('select user_id, user_pass, user_name, user_email, admin from user order by user_id');
+        $request->session()->put('user_id', $user[0]->user_id);
+        $request->session()->put('admin', $user[0]->admin);
+        
         //ユーザ一覧画面に遷移
         return view('appusers.usersadmin', ['userdata' => $items]);
     }
 
     //ユーザ削除(get)
     public function userdelete(Request $request){
-        $login_userid = $request->session()->get('user_id');
         $param = [
             'user_id' => $request->user_id,
         ];
-        DB::delete('delete from user where user_id = :user_id',$param);
-        DB::update('update user set user_id = user_id - 1 where user_id > :user_id ',$param);
-        $request->session()->flash('delete_message', 'ユーザを削除しました。');
-        $request->session()->put('user_id', $login_userid);
+
+        //タスクがあるかチェック
+        $items = DB::select('select task_id from user_taskmanage where user_id = :user_id', $param);
+        if(!empty($items)){
+            $request->session()->flash('userdeleteerror_message', '当該ユーザのタスクが残っているため削除できませんでした。');
+        }else{
+            DB::delete('delete from user where user_id = :user_id',$param);
+            DB::update('update user set user_id = user_id - 1 where user_id > :user_id ',$param);
+            $request->session()->flash('delete_message', 'ユーザを削除しました。');
+        }
         
         //ユーザ一覧画面に遷移
         return redirect('/administrator');
@@ -135,41 +142,20 @@ class AppUserController extends Controller
 
     //管理者ユーザログイン(get)
     public function userlogin(Request $request){
-        $request->session()->put('user_id', $request->user_id);
-        $param = [
-            "user_id" => $request->user_id,
-        ];
-        $admin = DB::select('select admin from user where user_id=:user_id',$param);
-        $param = [
-            "user_id" => $request->user_id,
-            "day" => '%Y年%m月%d日',
-            "time" => '%k時%i分',
-        ];
-        $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, completed from user_taskmanage where user_id=:user_id',$param);
-        
-        //コロナapi呼び出し
-        // APIアクセスURL
-        $url = 'https://covid19-japan-web-api.now.sh/api/v1/prefectures';
-        // ストリームコンテキストのオプションを作成
-        $options = array(
-            // HTTPコンテキストオプションをセット
-            'http' => array(
-                'method'=> 'GET',
-                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
-            )
-        );
-        // ストリームコンテキストの作成
-        $context = stream_context_create($options);
-        $raw_data = file_get_contents($url, false,$context);
-        $result = json_decode($raw_data, true);
-        $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
+        $user_id = $request->user_id;
 
-        //現在時間取得
-        $date = date("Y年m月d日 H時i分s秒"); 
+        $param=[
+            'user_id' => $user_id,
+        ];
+        $items = DB::select('select user_id, admin from user where user_id = :user_id',$param);
 
-        //タスク一覧画面に遷移
-        return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$request->user_id, 'api'=>$data, 'date'=>$date]);
+        foreach($items as $it){
+            $user_id = $it->user_id;
+        }
+        $request->session()->put('user_id', $user_id);
+
+        //タスク一覧画面遷移
+        $task_controller = new TaskController;
+        return $task_controller->taskapp($request);
     }
-
-
 }

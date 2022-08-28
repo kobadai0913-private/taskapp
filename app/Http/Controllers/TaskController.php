@@ -14,16 +14,14 @@ class TaskController extends Controller
 {
     //タスク修正(get)
     public function taskfix(Request $request){
+
         $param = [
             "task_id" => $request->task_id,
             "day" => '%Y年%m月%d日',
             "time" => '%k時%i分',
         ];
         $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time from user_taskmanage where task_id = :task_id',$param);
-        $test = DB::table('user')->select('user_id');
-        foreach($test as $data){
-            print_r($data->user_id);
-        }
+
         //タスク修正画面に遷移
         return view('task.taskfix',['tasks'=>$items]);
     }
@@ -165,13 +163,22 @@ class TaskController extends Controller
     //タスク一覧(get)
     public function taskapp(Request $request){
         $user_id = $request->session()->get('user_id');
-        $param = [
-            "user_id" => $user_id,
-        ];
-        $admin = DB::select('select admin from user where user_id=:user_id',$param);
+        $user_admin = $request->session()->get('admin');
 
-        
-        if($admin[0]->admin == "admin"){
+        //ユーザ権限確認
+        $user_param = [
+            'user_id' => $user_id,
+        ];
+        $get_admin = DB::select('select admin from user where user_id = :user_id',$user_param);
+        if($user_admin == 'admin'){
+            $request->session()->put('admin_flg',true);
+        }else{
+        }
+
+        $request->session()->put('admin',$get_admin[0]->admin);
+        $user_admin = $get_admin[0]->admin;
+
+        if($user_admin == "admin"){
             $param = [
                 "day" => '%Y年%m月%d日',
                 "time" => '%k時%i分',
@@ -207,8 +214,7 @@ class TaskController extends Controller
         $date = date("Y年m月d日 H時i分s秒"); 
 
         //タスク一覧画面に遷移
-        // return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
-        return view('task.tasktop',['user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
+        return view('task.tasktop',['tasks'=>$items, 'api'=>$data, 'date'=>$date]);
     }
 
     //タスク削除(get)
@@ -232,6 +238,8 @@ class TaskController extends Controller
 
     //ログイン(post)
     public function taskloginsucsess(Request $request){
+        //セッション削除
+        $request->session()->flush();
         //バリデーション処理
         $rules = [
             'email' => 'required',
@@ -253,58 +261,24 @@ class TaskController extends Controller
             'user_email' => $request->email,
             'user_password' => $request->password,
         ];
-        $item = DB::select('select user_id from user where user_email=:user_email and user_pass=:user_password',$param);
+        $items = DB::select('select user_id, admin from user where user_email=:user_email and user_pass=:user_password',$param);
 
         //エラー処理
-        if($item==null){
+        if(empty($items)){
             $request->session()->flash('login_errors', '入力項目に問題があります。');
             return redirect('/task');
         }
-        foreach($item as $it){
+
+        foreach($items as $it){
             $user_id = $it->user_id;
+            $user_admin = $it->admin;
         }
         $request->session()->put('user_id', $user_id);
-        $param = [
-            "user_id" => $user_id,
-        ];
-        $admin = DB::select('select admin from user where user_id=:user_id',$param);
-        if($admin[0]->admin == "admin"){
-            $param = [
-                "day" => '%Y年%m月%d日',
-                "time" => '%k時%i分',
-            ];
-            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, user_id, completed from user_taskmanage order by user_id',$param);
-        }else{
-            $param = [
-                "user_id" => $user_id,
-                "day" => '%Y年%m月%d日',
-                "time" => '%k時%i分',
-            ];
-            $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time, completed from user_taskmanage where user_id=:user_id',$param);
-        }
-
-        // APIアクセスURL
-        $url = 'https://covid19-japan-web-api.now.sh/api/v1/prefectures';
-        // ストリームコンテキストのオプションを作成
-        $options = array(
-            // HTTPコンテキストオプションをセット
-            'http' => array(
-                'method'=> 'GET',
-                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
-            )
-        );
-        // ストリームコンテキストの作成
-        $context = stream_context_create($options);
-        $raw_data = file_get_contents($url, false,$context);
-        $result = json_decode($raw_data, true);
-        $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
-
-        //現在時間取得
-        $date = date("Y年m月d日 H時i分s秒"); 
-
-        //タスク一覧画面に遷移
-        return view('task.tasktop',['tasks'=>$items, 'admin'=>$admin[0], 'user_id'=>$user_id, 'api'=>$data, 'date'=>$date]);
-
+        $request->session()->put('admin', $user_admin);
+        $request->session()->put('admin_flg', false);
+       
+        //タスク一覧画面遷移
+        return self::taskapp($request);
     }
 
     //新規会員登録(get)
@@ -363,7 +337,7 @@ class TaskController extends Controller
     //csv出力
     public function taskcsv(Request $request)
     {
-        $user_id = $request->user_id;
+        $user_id = $request->session()->get('user_id');
         $param = [
             "user_id" => $user_id,
             "day" => '%Y年%m月%d日',
