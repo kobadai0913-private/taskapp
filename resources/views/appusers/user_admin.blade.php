@@ -8,14 +8,13 @@
     @if(session('update_message'))
         <div class="alert alert-primary">{{session('update_message')}}</div>
     @endif 
-    <h5 class="card-header">ユーザ一覧</h5> 
+    <h5 class="card-header">ユーザ一覧</h5>  
     @if(session('userdeleteerror_message'))
-    <div style="color:red">※{{session('userdeleteerror_message')}}</div>
+        <div style="color:red">※{{session('userdeleteerror_message')}}</div>
     @endif  
         <table class="table table-hover">
             <thead>
             <tr>
-                <th scope="col">No</th>
                 <th scope="col">ユーザID</th>
                 <th scope="col">ユーザ名</th>
                 <th scope="col">パスワード</th>
@@ -27,7 +26,6 @@
             <tbody>
             @foreach($userdata as $data)
                 <tr>
-                    <td></td>
                     <td>{{ $data->user_id }}</a></td>
                     <td>{{ $data->user_name }}</td>
                     <td>{{ $data->user_pass }}</td>

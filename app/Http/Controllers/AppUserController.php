@@ -14,12 +14,12 @@ use App\Http\Controllers\TaskController;
 class AppUserController extends Controller
 {
     //管理者ログイン(get)
-    public function loginadmin(){
-        return view('appusers.loginadmin');
+    public function login_admin(){
+        return view('appusers.login_admin');
     }
 
     //管理者ログイン(post)
-    public function loginadmin_p(Request $request){
+    public function login_admin_registration(Request $request){
         //バリデーション処理
         $rules = [
             'email' => 'required',
@@ -50,11 +50,11 @@ class AppUserController extends Controller
         }
         
         //ユーザ一覧画面遷移
-        return self::useradmin($request);
+        return self::user_admin_list($request);
     }
 
     //ユーザ管理画面(get)
-    public function useradmin(Request $request){
+    public function user_admin_list(Request $request){
         $param = [
             "admin" => "admin",
         ];
@@ -65,11 +65,12 @@ class AppUserController extends Controller
         $request->session()->put('admin', $user[0]->admin);
         
         //ユーザ一覧画面に遷移
-        return view('appusers.usersadmin', ['userdata' => $items]);
+        return view('appusers.user_admin', ['userdata' => $items]);
     }
 
     //ユーザ削除(get)
-    public function userdelete(Request $request){
+    public function user_delete(Request $request){
+        $login_userid = $request->session()->get('user_id');
         $param = [
             'user_id' => $request->user_id,
         ];
@@ -82,6 +83,7 @@ class AppUserController extends Controller
             DB::delete('delete from user where user_id = :user_id',$param);
             DB::update('update user set user_id = user_id - 1 where user_id > :user_id ',$param);
             $request->session()->flash('delete_message', 'ユーザを削除しました。');
+            $request->session()->put('user_id', $login_userid);
         }
         
         //ユーザ一覧画面に遷移
@@ -89,18 +91,18 @@ class AppUserController extends Controller
     }
 
     //タスク修正(get)
-    public function userfix(Request $request){
+    public function user_fix(Request $request){
         $param = [
             'user_id' => $request->user_id,
         ];
         $items = DB::select('select user_id, user_name, user_pass, user_email, admin from user where user_id = :user_id',$param);
         
         //タスク修正画面に遷移
-        return view('appusers.userfix',['users'=>$items]);
+        return view('appusers.user_fix',['users'=>$items, 'user_id'=>$request->user_id]);
     }
 
     //ユーザ修正(post)
-    public function userfix_create(Request $request){
+    public function user_fix__registration(Request $request){
         //バリデーション処理
         $rules = [
             'user_name' => 'required',
@@ -156,6 +158,6 @@ class AppUserController extends Controller
 
         //タスク一覧画面遷移
         $task_controller = new TaskController;
-        return $task_controller->taskapp($request);
+        return $task_controller->taskapp_list($request);
     }
 }
