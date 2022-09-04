@@ -49,12 +49,13 @@ class AppUserController extends Controller
             return redirect('/login/admin');
         }
         
-        //ユーザ一覧画面遷移
-        return self::user_admin_list($request);
+         //ユーザ一覧画面遷移
+         return self::user_admin_list($request);
     }
 
     //ユーザ管理画面(get)
     public function user_admin_list(Request $request){
+        $request->session()->put('admin_flg',true);
         $param = [
             "admin" => "admin",
         ];
@@ -68,29 +69,41 @@ class AppUserController extends Controller
         return view('appusers.user_admin', ['userdata' => $items]);
     }
 
-    //ユーザ削除(get)
+    //ユーザ削除
     public function user_delete(Request $request){
+        $user_name;
         $login_userid = $request->session()->get('user_id');
         $param = [
             'user_id' => $request->user_id,
         ];
+        $users = DB::select('select user_name from user where user_id = :user_id',$param);
+        foreach($users as $user){
+            $user_name = $user->user_name;
+        }
 
         //タスクがあるかチェック
         $items = DB::select('select task_id from user_taskmanage where user_id = :user_id', $param);
         if(!empty($items)){
             $request->session()->flash('userdeleteerror_message', '当該ユーザのタスクが残っているため削除できませんでした。');
         }else{
+            $user_datas = DB::select('select user_id from user where user_id > :user_id order by user_id asc',$param);
             DB::delete('delete from user where user_id = :user_id',$param);
-            DB::update('update user set user_id = user_id - 1 where user_id > :user_id ',$param);
+            foreach($user_datas as $user_id){
+                $param = [
+                    'user_id' => $user_id->user_id,
+                ];
+                DB::update('update user set user_id = :user_id - 1 where user_id = :user_id ',$param);
+                $alter_sql = 'alter table information_board drop column '.str($user_name).'_flg';
+                DB::statement($alter_sql);
+            }
             $request->session()->flash('delete_message', 'ユーザを削除しました。');
-            $request->session()->put('user_id', $login_userid);
         }
         
         //ユーザ一覧画面に遷移
         return redirect('/administrator');
     }
 
-    //タスク修正(get)
+    //ユーザ修正(get)
     public function user_fix(Request $request){
         $param = [
             'user_id' => $request->user_id,
@@ -102,7 +115,7 @@ class AppUserController extends Controller
     }
 
     //ユーザ修正(post)
-    public function user_fix__registration(Request $request){
+    public function user_fix_registration(Request $request){
         //バリデーション処理
         $rules = [
             'user_name' => 'required',
@@ -143,7 +156,7 @@ class AppUserController extends Controller
     }
 
     //管理者ユーザログイン(get)
-    public function userlogin(Request $request){
+    public function user_login(Request $request){
         $user_id = $request->user_id;
 
         $param=[

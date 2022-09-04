@@ -19,7 +19,7 @@ class SendMail extends Mailable
      *
      * @return void
      */
-    public function __construct($user_name, $email, $today_task, $old_task, $admin)
+    public function __construct($user_name, $email, $today_task, $old_task, $admin, $csv_flg)
     {
         $this->title = sprintf('%s様', $user_name);
         $this->email = $email;
@@ -27,6 +27,7 @@ class SendMail extends Mailable
         $this->today_task = $today_task;
         $this->old_task = $old_task;
         $this->admin = $admin;
+        $this->csv_flg = $csv_flg;
     }
 
     /**
@@ -36,24 +37,44 @@ class SendMail extends Mailable
      */
     public function build()
     {
-        if($this->admin == "admin"){
-            return $this->view('mail.admin_mailsend')
-                    ->to($this->email, $this->name)
-                    ->subject($this->title)
-                    ->attach(storage_path('task.csv'))
-                    ->with([
-                        'today_task' => $this->today_task,
-                        'old_task' => $this->old_task,
-                      ]);
+        if($this->csv_flg == true){
+            if($this->admin == "admin"){
+                return $this->view('mail.admin_mail_send')
+                        ->to($this->email, $this->name)
+                        ->subject($this->title)
+                        ->attach(storage_path('task.csv'))
+                        ->with([
+                            'today_task' => $this->today_task,
+                            'old_task' => $this->old_task,
+                          ]);
+            }else{
+                return $this->view('mail.mail_send')
+                        ->to($this->email, $this->name)
+                        ->subject($this->title)
+                        ->attach(storage_path('task.csv'))
+                        ->with([
+                            'today_task' => $this->today_task,
+                            'old_task' => $this->old_task,
+                          ]);    
+            }
         }else{
-            return $this->view('mail.mailsend')
-                    ->to($this->email, $this->name)
-                    ->subject($this->title)
-                    ->attach(storage_path('task.csv'))
-                    ->with([
-                        'today_task' => $this->today_task,
-                        'old_task' => $this->old_task,
-                      ]);    
+            if($this->admin == "admin"){
+                return $this->view('mail.admin_mail_send')
+                        ->to($this->email, $this->name)
+                        ->subject($this->title)
+                        ->with([
+                            'today_task' => $this->today_task,
+                            'old_task' => $this->old_task,
+                          ]);
+            }else{
+                return $this->view('mail.mail_send')
+                        ->to($this->email, $this->name)
+                        ->subject($this->title)
+                        ->with([
+                            'today_task' => $this->today_task,
+                            'old_task' => $this->old_task,
+                          ]);    
+            }
         }
     }
 }

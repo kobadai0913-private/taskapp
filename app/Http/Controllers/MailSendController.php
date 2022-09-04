@@ -15,14 +15,15 @@ class MailSendController extends Controller
 		$items = [];
 		$today_task=array();
 		$old_task=array();
-		$count = 1;
+		$today_count = 1;
+		$old_count = 1;
 		//今日の日付取得
 		$today = date("Y年m月d日");
 		//ユーザ情報取得
 		$userparam = [
             "user_id" => $user_id,
         ];
-		$userdata = DB::select('select user_name, user_email, admin from users where user_id=:user_id',$userparam);
+		$userdata = DB::select('select user_name, user_email, admin from user where user_id=:user_id',$userparam);
 		$admin= $userdata[0]->admin;
 		if($admin == "admin"){
 			$user_name = 'タスク管理アプリ管理者';
@@ -32,71 +33,61 @@ class MailSendController extends Controller
 		$mail_to = $userdata[0]->user_email;
 		//admin処理・user処理
 		if($admin == 'admin'){
+			//今日のタスク取得
 			$param = [
-				"day" => 'YYYY年MM月DD日',
-				"time" => 'HH24時MI分',
-				'completed' => 'incomplete',
+				"start_day" => 'YYYY年MM月DD日',
+				"start_time" => 'HH24時MI分',
+				"end_day" => 'YYYY年MM月DD日',
+				"end_time" => 'HH24時MI分',
+				'completed' => 'today_incomplete',
+				'completedf' => 'excess_incomplete',
 			];
-			$items = DB::select('select t.task_name as task_name, t.task_detail as task_detail, to_char(t.task_date,:day) as task_date, to_char(t.task_time,:time) as task_time, u.user_id as user_id, u.user_name as user_name, u.user_email as user_email from user_taskmanage t inner join users u on t.user_id = u.user_id where t.completed = :completed',$param);
+			$items = DB::select('select t.task_name as task_name, t.task_detail as task_detail, to_char(t.task_start_date,:start_day) as task_start_date, to_char(t.task_start_time,:start_time) as task_start_time, to_char(t.task_end_date,:end_day) as task_end_date, to_char(t.task_end_time,:end_time) as task_end_time, t.completed as task_completed, u.user_id as user_id, u.user_name as user_name, u.user_email as user_email from user_taskmanage t inner join user u on t.user_id = u.user_id where t.completed = :completed or t.completed = :completedf order by task_start_date, task_start_time, task_end_date, task_end_time',$param);
 			foreach($items as $data){
-				//タスク日付取得
-				$time_work = date($data->task_date);
 				//今日のタスク
-				if($today == $time_work){
-					$work = array(array(str($count),$data->task_name,$data->task_detail,$data->task_date,$data->task_time,$data->user_id,$data->user_name,$data->user_email));
+				if($data->task_completed == "today_incomplete"){
+					$work = array(array(str($today_count),$data->task_name,$data->task_detail,$data->task_start_date,$data->task_start_time,$data->task_end_date,$data->task_end_time,$data->user_id,$data->user_name,$data->user_email));
 					$today_task = array_merge($today_task,$work);
+					$today_count += 1;
 				}
 				//未完了タスク(今日以前)
-				if($today > $time_work){
-					$work = array(array(str($count),$data->task_name,$data->task_detail,$data->task_date,$data->task_time,$data->user_id,$data->user_name,$data->user_email));
+				if($data->task_completed == "excess_incomplete"){
+					$work = array(array(str($old_count),$data->task_name,$data->task_detail,$data->task_start_date,$data->task_start_time,$data->task_end_date,$data->task_end_time,$data->user_id,$data->user_name,$data->user_email));
 					$old_task = array_merge($old_task,$work);
+					$old_count += 1;
 				}
-				$count += 1;
 			}
 
-			//csvファイル作成
-			$csv_count = 1;
-			$data = [];
-			$data[] = ['No', 'ユーザID', 'ユーザ名', 'ユーザメールアドレス', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間'];
-			foreach($items as $item){
-				$data[] = [str($csv_count),$item->user_id,$item->user_name,$item->user_email,$item->task_name,$item->task_detail,$item->task_date,$item->task_time];
-				$csv_count += 1;
-			}
-			$save_file = storage_path('task.csv');
-			$file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
-			$file->setCsvControl(",");                   // カンマ区切り
-			foreach ($data as $row) {
-				mb_convert_variables('SJIS', 'UTF-8', $row);
-				$file->fputcsv($row);
-			}
 		}else{
 			$param = [
 				"user_id" => $user_id,
-				"day" => 'YYYY年MM月DD日',
-				"time" => 'HH24時MI分',
-				'completed' => 'incomplete',
+				"start_day" => 'YYYY年MM月DD日',
+				"start_time" => 'HH24時MI分',
+				"end_day" => 'YYYY年MM月DD日',
+				"end_time" => 'HH24時MI分',
+				'completed' => 'today_incomplete',
+				'completedf' => 'excess_incomplete',
 			];
-			$items = DB::select('select task_name, task_detail, to_char(task_date,:day) as task_date, to_char(task_time,:time) as task_time from user_taskmanage where user_id=:user_id and completed = :completed',$param);
+			$items = DB::select('select task_name, task_detail, to_char(task_start_date,:start_day) as task_start_date, to_char(task_start_time,:start_time) as task_start_time, to_char(task_end_date,:end_day) as task_end_date, to_char(task_end_time,:end_time) as task_end_time, completed from user_taskmanage where user_id=:user_id and (completed = :completed or completed = :completedf) order by task_start_date, task_start_time, task_end_date, task_end_time',$param);
 			foreach($items as $data){
-				//タスク日付取得
-				$time_work = date($data->task_date);
 				//今日のタスク
-				if($today == $time_work){
-					$work = array(array(str($count),$data->task_name,$data->task_detail,$data->task_date,$data->task_time));
+				if($data->completed == "today_incomplete"){
+					$work = array(array(str($today_count),$data->task_name,$data->task_detail,$data->task_start_date,$data->task_start_time,$data->task_end_date,$data->task_end_time));
 					$today_task = array_merge($today_task,$work);
+					$today_count += 1;
 				}
 				//未完了タスク(今日以前)
-				if($today > $time_work){
-					$work = array(array(str($count),$data->task_name,$data->task_detail,$data->task_date,$data->task_time));
+				if($data->completed == "excess_incomplete"){
+					$work = array(array(str($old_count),$data->task_name,$data->task_detail,$data->task_start_date,$data->task_start_time,$data->task_end_date,$data->task_end_time));
 					$old_task = array_merge($old_task,$work);
+					$old_count += 1;
 				}
-				$count += 1;
 			}
 		}
 		//csv関数呼び出し
-		self::csvoutput($admin, $items);
+		$csv_flg = self::csvoutput($admin, $today_task, $old_task);
 		//メール送信
-		Mail::to($mail_to)->send( new SendMail($user_name, $mail_to, $today_task, $old_task, $admin));
+		Mail::to($mail_to)->send( new SendMail($user_name, $mail_to, $today_task, $old_task, $admin, $csv_flg));
 		$request->session()->flash('sendmail_message', 'メール送信が完了しました');
 		
 		//タスク一覧画面に遷移
@@ -105,11 +96,14 @@ class MailSendController extends Controller
 
 	public static function batchEmailSending(){
 		//user_id,admin取得
-		$user_data = DB::select('select user_id, user_email, user_name, admin from users');
+		$user_data = DB::select('select user_id, user_email, user_name, admin from user');
 		foreach($user_data as $data){
 			$items = [];
+			$csv_flg;
 			$today_task=array();
 			$old_task=array();
+			$today_count = 1;
+			$old_count = 1;
 			$select_user = $data->user_id;
 			$select_email = $data->user_email;
 			$select_admin = $data->admin;
@@ -120,37 +114,28 @@ class MailSendController extends Controller
 				$user_name = $select_name;
 			}
 			$mail_to = $select_email;
-			$param = [
-				"user_id" => $select_user,
-				"day" => 'YYYY年MM月DD日',
-				"time" => 'HH24時MI分',
-				'completed' => 'incomplete',
-			];
 			//admin処理・user処理
 			if($select_admin == 'admin'){
 				$param = [
-					"day" => 'YYYY年MM月DD日',
-					"time" => 'HH24時MI分',
-					'completed' => 'incomplete',
+					"start_day" => '%Y年%m月%d日',
+                    "start_time" => '%k時%i分',
+                    "end_day" => '%Y年%m月%d日',
+                    "end_time" => '%k時%i分',
+					'completed' => 'today_incomplete',
+					'completedf' => 'excess_incomplete',
 				];
-				$items = DB::select('select t.task_name as task_name, t.task_detail as task_detail, to_char(t.task_date,:day) as task_date, to_char(t.task_time,:time) as task_time, u.user_id as user_id, u.user_name as user_name, u.user_email as user_email from user_taskmanage t inner join users u on t.user_id = u.user_id where t.completed = :completed',$param);
+				$items = DB::select('select t.task_name as task_name, t.task_detail as task_detail, date_format(t.task_start_date,:start_day) as task_start_date, time_format(t.task_start_time,:start_time) as task_start_time, date_format(t.task_end_date,:end_day) as task_end_date, time_format(t.task_end_time,:end_time) as task_end_time, t.completed as task_completed, u.user_id as user_id, u.user_name as user_name, u.user_email as user_email from user_taskmanage t inner join user u on t.user_id = u.user_id where t.completed = :completed or t.completed = :completedf order by task_start_date, task_start_time, task_end_date, task_end_time',$param);
 				if(!empty($items)){
-					$today_count = 1;
-					$old_count = 1;
-					//今日の日付取得
-					$today = date("Y年m月d日");
 					foreach($items as $datas){
-						//タスク日付取得
-						$time_work = date($datas->task_date);
 						//今日のタスク
-						if($today == $time_work){
-							$work = array(array(str($today_count),$datas->task_name,$datas->task_detail,$datas->task_date,$datas->task_time,$datas->user_id,$datas->user_name,$datas->user_email));
+						if($datas->task_completed == "today_incomplete"){
+							$work = array(array(str($today_count),$datas->task_name,$datas->task_detail,$datas->task_start_date,$datas->task_start_time,$datas->task_end_date,$datas->task_end_time,$datas->user_id,$datas->user_name,$datas->user_email));
 							$today_task = array_merge($today_task,$work);
 							$today_count += 1;
 						}
 						//未完了タスク(今日以前)
-						if($today > $time_work){
-							$work = array(array(str($old_count),$datas->task_name,$datas->task_detail,$datas->task_date,$datas->task_time,$datas->user_id,$datas->user_name,$datas->user_email));
+						if($datas->task_completed == "excess_incomplete"){
+							$work = array(array(str($old_count),$datas->task_name,$datas->task_detail,$datas->task_start_date,$datas->task_start_time,$datas->task_end_date,$datas->task_end_time,$datas->user_id,$datas->user_name,$datas->user_email));
 							$old_task = array_merge($old_task,$work);
 							$old_count += 1;
 						}
@@ -159,28 +144,25 @@ class MailSendController extends Controller
 			}else{
 				$param = [
 					"user_id" => $select_user,
-					"day" => 'YYYY年MM月DD日',
-					"time" => 'HH24時MI分',
-					'completed' => 'incomplete',
+					"start_day" => '%Y年%m月%d日',
+                    "start_time" => '%k時%i分',
+                    "end_day" => '%Y年%m月%d日',
+                    "end_time" => '%k時%i分',
+					'completed' => 'today_incomplete',
+					'completedf' => 'excess_incomplete',
 				];
-				$items = DB::select('select task_name, task_detail, to_char(task_date,:day) as task_date, to_char(task_time,:time) as task_time from user_taskmanage where user_id=:user_id and completed = :completed',$param);
+				$items = DB::select('select task_name, task_detail, date_format(task_start_date,:start_day) as task_start_date, time_format(task_start_time,:start_time) as task_start_time, date_format(task_end_date,:end_day) as task_end_date, time_format(task_end_time,:end_time) as task_end_time, completed from user_taskmanage where user_id=:user_id and (completed = :completed or completed = :completedf) order by task_start_date, task_start_time, task_end_date, task_end_time',$param);
 				if(!empty($items)){
-					$today_count = 1;
-					$old_count = 1;
-					//今日の日付取得
-					$today = date("Y年m月d日");
 					foreach($items as $datas){
-						//タスク日付取得
-						$time_work = date($datas->task_date);
 						//今日のタスク
-						if($today == $time_work){
-							$work = array(array(str($today_count),$datas->task_name,$datas->task_detail,$datas->task_date,$datas->task_time));
+						if($datas->completed == "today_incomplete"){
+							$work = array(array(str($today_count),$datas->task_name,$datas->task_detail,$datas->task_start_date,$datas->task_start_time,$datas->task_end_date,$datas->task_end_time));
 							$today_task = array_merge($today_task,$work);
 							$today_count += 1;
 						}
 						//未完了タスク(今日以前)
-						if($today > $time_work){
-							$work = array(array(str($old_count),$datas->task_name,$datas->task_detail,$datas->task_date,$datas->task_time));
+						if($datas->completed == "excess_incomplete"){
+							$work = array(array(str($old_count),$datas->task_name,$datas->task_detail,$datas->task_start_date,$datas->task_start_time,$datas->task_end_date,$datas->task_end_time));
 							$old_task = array_merge($old_task,$work);
 							$old_count += 1;
 						}
@@ -188,46 +170,73 @@ class MailSendController extends Controller
 				}
 			}
 			//csv関数呼び出し
-			self::csvoutput($select_admin, $items);
+			$csv_flg = self::csvoutput($select_admin, $today_task, $old_task);
 			//メール送信
-			Mail::to($mail_to)->send( new SendMail($user_name, $mail_to, $today_task, $old_task, $select_admin));
+			Mail::to($mail_to)->send( new SendMail($user_name, $mail_to, $today_task, $old_task, $select_admin, $csv_flg));
 		}
 	}
 
 	//csv関数
-	public static function csvoutput($text, $items){
+	public static function csvoutput($text, $today_task, $old_task){
 		//変数定義
 		$csv_count = 1;
 		$data = [];
+		$csvw_flg = false;
 		if($text == "admin"){
 			//csvファイル作成
-			$data[] = ['No', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間'];
-			foreach($items as $item){
-				$data[] = [str($csv_count),$item->task_name,$item->task_detail,$item->task_date,$item->task_time];
-				$csv_count += 1;
+			if(!empty($today_task)){
+				$data[] = ['本日のタスク'];
+				$data[] = ['No', 'ユーザID', 'ユーザ名', 'emailアドレス', 'タスク名', 'タスク詳細', 'タスク開始日付', 'タスク開始時間', 'タスク終了日付', 'タスク終了時間'];
+				foreach($today_task as $item){
+					$data[] = [$item[0],$item[7],$item[8],$item[9],$item[1],$item[2],$item[3],$item[4],$item[5],$item[6]];
+				}
+				$csvw_flg = true;
 			}
-			$save_file = storage_path('task.csv');
-			$file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
-			$file->setCsvControl(",");                   // カンマ区切り
-			foreach ($data as $row) {
-				mb_convert_variables('SJIS', 'UTF-8', $row);
-				$file->fputcsv($row);
+			if(!empty($old_task)){
+				$data[] = ['未完了のタスク'];
+				$data[] = ['No', 'ユーザID', 'ユーザ名', 'emailアドレス', 'タスク名', 'タスク詳細', 'タスク開始日付', 'タスク開始時間', 'タスク終了日付', 'タスク終了時間'];
+				foreach($old_task as $item){
+					$data[] = [$item[0],$item[7],$item[8],$item[9],$item[1],$item[2],$item[3],$item[4],$item[5],$item[6]];
+				}
+				$csvw_flg = true;
+			}
+			if($csvw_flg == true){
+				$save_file = storage_path('task.csv');
+				$file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
+				$file->setCsvControl(",");                   // カンマ区切り
+				foreach ($data as $row) {
+					mb_convert_variables('SJIS', 'UTF-8', $row);
+					$file->fputcsv($row);
+				}
 			}
 		}else{
-			//csvファイル作成
-			$data[] = ['No', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間'];
-			foreach($items as $item){
-				$data[] = [str($csv_count),$item->task_name,$item->task_detail,$item->task_date,$item->task_time];
-				$csv_count += 1;
+			if(!empty($today_task)){
+				//csvファイル作成
+				$data[] = ['本日のタスク'];
+				$data[] = ['No', 'タスク名', 'タスク詳細', 'タスク開始日付', 'タスク開始時間', 'タスク終了日付', 'タスク終了時間'];
+				foreach($today_task as $item){
+					$data[] = [$item[0],$item[1],$item[2],$item[3],$item[4],$item[5],$item[6]];
+				}
+				$csvw_flg = true;
 			}
-			$save_file = storage_path('task.csv');
-			$file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
-			$file->setCsvControl(",");                   // カンマ区切り
-			foreach ($data as $row) {
-				mb_convert_variables('SJIS', 'UTF-8', $row);
-				$file->fputcsv($row);
+			if(!empty($old_task)){
+				$data[] = ['未完了のタスク'];
+				$data[] = ['No', 'タスク名', 'タスク詳細', 'タスク開始日付', 'タスク開始時間', 'タスク終了日付', 'タスク終了時間'];
+				foreach($old_task as $item){
+					$data[] = [$item[0],$item[1],$item[2],$item[3],$item[4],$item[5],$item[6]];
+				}
+				$csvw_flg = true;
+			}
+			if($csvw_flg == true){
+				$save_file = storage_path('task.csv');
+				$file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
+				$file->setCsvControl(",");                   // カンマ区切り
+				foreach ($data as $row) {
+					mb_convert_variables('SJIS', 'UTF-8', $row);
+					$file->fputcsv($row);
+				}
 			}
 		}
-		
+		return $csvw_flg;
 	} 
 }

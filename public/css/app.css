@@ -11316,6 +11316,42 @@ h1, .h1 {
   text-align: center;
 }
 
+h3, .h3 {
+  text-align: center;
+}
+
+.information{
+  padding-left: 100px;          /* 左側に空白を調整する */
+  font-size: 20px;
+}
+
+.information-detail{
+  padding-left: 130px;          /* 左側に空白を調整する */
+  font-size: 20px;
+}
+
+dl{
+  width:auto;
+ }
+ dt{
+  border-bottom:1px solid #ccc;
+   float:left;
+   padding:10px 5px;
+ }
+ dd{
+  border-bottom:1px solid #ccc;
+   margin-left:100px;
+   padding:10px 5px;
+ }
+.new{
+  background-color:red;
+  border-radius:5px;
+  color:#fff;
+  margin:0 20px;
+  padding:5px 15px;
+  text-decoration:none;
+}
+
 table {
   text-align: center;
 }
@@ -11340,11 +11376,11 @@ table {
   counter-reset: rowCount;
 }
 
-.table-hover > tbody > tr {
+.table-hover > .task > tr {
   counter-increment: rowCount;
 }
 
-.table-hover > tbody > tr > td:first-child::before {
+.table-hover > .task > tr > td:first-child::before {
   content: counter(rowCount);
 }
 

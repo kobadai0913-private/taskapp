@@ -36,27 +36,39 @@
         </td>
       </tr>
       <tr>
-        <td><label for="name">タスク日付</label>
+        <td><label for="name">タスク開始日付</label>
         </td>
         <td>
-          @if($errors->has('task_date'))
+          @if($errors->has('task_start_date'))
           <div>
-            <div style="color:red">※{{$errors->first('task_date')}}</div>
+            <div style="color:red">※{{$errors->first('task_start_date')}}</div>
           </div>
           @endif
-          <input type="date" name="task_date" style="width: 190px;" value="{{old('task_date')}}">
+          @if($errors->has('task_start_time'))
+          <div>
+            <div style="color:red">※{{$errors->first('task_start_time')}}</div>
+          </div>
+          @endif
+          <input type="date" name="task_start_date" style="width: 190px;" value="{{old('task_start_date')}}">
+          <input type="time" name="task_start_time" style="width: 190px;" value="{{old('task_start_time')}}">
         </td>
       </tr>
       <tr>
-        <td><label for="name">タスク時間</label>
+        <td><label for="name">タスク終了日付</label>
         </td>
         <td>
-          @if($errors->has('task_time'))
+          @if($errors->has('task_end_date'))
           <div>
-            <div style="color:red">※{{$errors->first('task_time')}}</div>
+            <div style="color:red">※{{$errors->first('task_end_date')}}</div>
           </div>
           @endif
-          <input type="time" name="task_time" style="width: 190px;" value="{{old('task_time')}}">
+          @if($errors->has('task_end_time'))
+          <div>
+            <div style="color:red">※{{$errors->first('task_end_time')}}</div>
+          </div>
+          @endif
+          <input type="date" name="task_end_date" style="width: 190px;" value="{{old('task_end_date')}}">
+          <input type="time" name="task_end_time" style="width: 190px;" value="{{old('task_end_time')}}">
         </td>
       </tr>
     </table>

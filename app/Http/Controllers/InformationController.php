@@ -73,7 +73,7 @@ class InformationController extends Controller
         ];
         $items = DB::select('select information_id, information_detail, information_date, information_name from information_board where information_id = :information_id',$param);
         
-        //タスク修正画面に遷移
+        //インフォメーション詳細修正画面に遷移
         return view('information.information_fix',['informations'=>$items]);
     }
 
@@ -112,8 +112,8 @@ class InformationController extends Controller
         DB::update('update information_board set information_date = :information_date, information_detail = :information_detail, information_name = :information_name where information_id = :information_id',$param);
         $request->session()->flash('informationupdate_message', 'インフォメーションを更新しました');
         
-        //タスク一覧に画面遷移する
-        return redirect('task/app');
+        //インフォメーション詳細に画面遷移する
+        return redirect('information/detail/'.$request->information_id);
     }
 
     //インフォメーション削除
@@ -138,10 +138,21 @@ class InformationController extends Controller
 
     //インフォメーション詳細(get)
     public function information_detail(Request $request){
+        $user_name;
+        $login_user = $request->session()->get('user_id');
+        $param=[
+            'user_id' => $login_user,
+        ];
+        $items = DB::select('select user_name from user where user_id = :user_id',$param);
+        foreach($items as $users){
+            $user_name = $users->user_name;
+        }
+        $update_sql = 'update information_board set '.str($user_name).'_flg = true where information_id = '.$request->information_id;
+        DB::update($update_sql);
         $param = [
             "information_id" => $request->information_id,
         ];
-        $items = DB::select('select information_name, information_detail, information_date from information_board where information_id = :information_id',$param);
+        $items = DB::select('select information_id, information_name, information_detail, information_date from information_board where information_id = :information_id',$param);
         
         //タスク詳細画面に遷移
         return view('information.information_detail',['informations'=>$items]);
