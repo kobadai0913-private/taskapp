@@ -31,14 +31,14 @@
         <td><label for="name">タスク開始日付</label>
         </td>
         <td>
-            <span>{{$task->task_start_date}} {{$task->task_start_time}}</span>
+            <span>{{$task->task_start_datetime}}</span>
         </td>
       </tr>
       <tr>
         <td><label for="name">タスク終了日付</label>
         </td>
         <td>
-            <span>{{$task->task_end_date}} {{$task->task_end_time}}</span>
+            <span>{{$task->task_end_datetime}}</span>
         </td>
       </tr>
     </table>

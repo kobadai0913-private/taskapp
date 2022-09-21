@@ -35,6 +35,13 @@
           @endif
         <input type="text" name="user_email" value="{{old('user_email')}}"></input>
     </div>
+    <div class="form-item">
+        <label for="user_email">権限</label>
+    </div>
+    <div class="authority">
+      <input type="radio" name="authority" value="user_authority" checked>ユーザ</input>
+      <input type="radio" name="authority" value="admin_authority">管理者</input>
+    </div>
     <div class="button-panel">
       <input type="submit" class="button" value="登録"></input>
     </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Validator;
@@ -36,15 +37,15 @@ class AppUserController extends Controller
             ->withInput();
         }
 
-        $param = [
-            'user_pass' => $request->password,
-            'user_email' => $request->email,
-        ];
-        $items = DB::select('select admin from user where user_pass = :user_pass and user_email = :user_email',$param);
-
         //ユーザ認証
+        $user_admin = DB::table('user')
+                    ->select('admin')
+                    ->where('user_pass','=',$request->password)
+                    ->where('user_email','=',$request->email)
+                    ->get();
+
         //エラー処理
-        if(empty($items)||($items[0]->admin != 'admin')){
+        if($user_admin == ''||($user_admin != 'admin')){
             $request->session()->flash('login_errors', '管理者アカウントではありません。管理者アカウントで再度ログインしてください。');
             return redirect('/login/admin');
         }
@@ -71,31 +72,41 @@ class AppUserController extends Controller
 
     //ユーザ削除
     public function user_delete(Request $request){
-        $user_name;
-        $login_userid = $request->session()->get('user_id');
-        $param = [
-            'user_id' => $request->user_id,
-        ];
-        $users = DB::select('select user_name from user where user_id = :user_id',$param);
-        foreach($users as $user){
-            $user_name = $user->user_name;
+        $user_name  = DB::table('user')
+                        ->select('user_name')
+                        ->where('user_id','=',$request->user_id)
+                        ->get();
+        foreach($user_name as $name){
+            $user_name = $name->user_name;
         }
-
         //タスクがあるかチェック
-        $items = DB::select('select task_id from user_taskmanage where user_id = :user_id', $param);
-        if(!empty($items)){
+        $task_id  = DB::table('user_taskmanage')
+                        ->select('task_id')
+                        ->where('user_id','=',$request->user_id)
+                        ->first();
+        if($task_id!=''){
             $request->session()->flash('userdeleteerror_message', '当該ユーザのタスクが残っているため削除できませんでした。');
         }else{
-            $user_datas = DB::select('select user_id from user where user_id > :user_id order by user_id asc',$param);
+            $user_datas = DB::table('user')
+                            ->select('user_id')
+                            ->where('user_id','>',$request->user_id)
+                            ->orderby('user_id','asc')
+                            ->get();
+            $param = [
+                'user_id' => $request->user_id,
+            ];   
             DB::delete('delete from user where user_id = :user_id',$param);
             foreach($user_datas as $user_id){
                 $param = [
                     'user_id' => $user_id->user_id,
+                    'user_id_count' => $user_id->user_id,
                 ];
-                DB::update('update user set user_id = :user_id - 1 where user_id = :user_id ',$param);
-                $alter_sql = 'alter table information_board drop column '.str($user_name).'_flg';
-                DB::statement($alter_sql);
+                DB::update('update user set user_id = :user_id_count - 1 where user_id = :user_id ',$param);
             }
+            $alter_sql = 'alter table information_board drop column '.str($user_name).'_flg';
+            DB::statement($alter_sql);
+            DB::rollback();
+            DB::commit();
             $request->session()->flash('delete_message', 'ユーザを削除しました。');
         }
         

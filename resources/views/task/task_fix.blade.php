@@ -40,36 +40,36 @@
         <td><label for="name">タスク開始日付</label>
         </td>
         <td>
-          @if($errors->has('task_start_date'))
+          @if($errors->has('task_start_datetime'))
           <div>
-            <div style="color:red">※{{$errors->first('task_start_date')}}</div>
+            <div style="color:red">※{{$errors->first('task_start_datetime')}}</div>
           </div>
           @endif
-          @if($errors->has('task_start_time'))
-          <div>
-            <div style="color:red">※{{$errors->first('task_start_time')}}</div>
-          </div>
+          @if($task->completed == 'deadline_incomplete')
+            <input type="datetime-local" style="width: 190px;" id="task_start_datetime" name="task_start_datetime" disabled value={{$task->task_start_datetime}}>
+            <div>
+              <input type="checkbox" id="task_start_datetime_status" name="task_start_datetime_status" value='true' checked>
+              <label for="scales">開始日付は入力しない</label>
+            </div>
+          @else
+            <input type="datetime-local" style="width: 190px;" id="task_start_datetime" name="task_start_datetime" value={{$task->task_start_datetime}}>
+            <div>
+              <input type="checkbox" id="task_start_datetime_status" name="task_start_datetime_status" value='true'>
+              <label for="scales">開始日付は入力しない</label>
+            </div>
           @endif
-          <input type="date" style="width: 190px;" name="task_start_date" value={{$task->task_start_date}}>
-          <input type="time" style="width: 190px;" name="task_start_time" value={{$task->task_start_time}}>
         </td>
       </tr>
       <tr>
         <td><label for="name">タスク終了日付</label>
         </td>
         <td>
-          @if($errors->has('task_end_date'))
+          @if($errors->has('task_end_datetime'))
           <div>
-            <div style="color:red">※{{$errors->first('task_end_date')}}</div>
+            <div style="color:red">※{{$errors->first('task_end_datetime')}}</div>
           </div>
           @endif
-          @if($errors->has('task_end_time'))
-          <div>
-            <div style="color:red">※{{$errors->first('task_end_time')}}</div>
-          </div>
-          @endif
-          <input type="date" style="width: 190px;" name="task_end_date" value={{$task->task_end_date}}>
-          <input type="time" style="width: 190px;" name="task_end_time" value={{$task->task_end_time}}>
+          <input type="datetime-local" style="width: 190px;" name="task_end_datetime" value={{$task->task_end_datetime}}>
         </td>
       </tr>
       @endforeach

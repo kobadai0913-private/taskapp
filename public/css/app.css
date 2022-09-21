@@ -11316,40 +11316,49 @@ h1, .h1 {
   text-align: center;
 }
 
+table {
+  text-align: center;
+}
+
 h3, .h3 {
   text-align: center;
 }
 
-.information{
-  padding-left: 100px;          /* 左側に空白を調整する */
+.information {
+  padding-left: 100px;
+  /* 左側に空白を調整する */
   font-size: 20px;
 }
 
-.information-detail{
-  padding-left: 130px;          /* 左側に空白を調整する */
+.information-detail {
+  padding-left: 130px;
+  /* 左側に空白を調整する */
   font-size: 20px;
 }
 
-dl{
-  width:auto;
- }
- dt{
-  border-bottom:1px solid #ccc;
-   float:left;
-   padding:10px 5px;
- }
- dd{
-  border-bottom:1px solid #ccc;
-   margin-left:100px;
-   padding:10px 5px;
- }
-.new{
-  background-color:red;
-  border-radius:5px;
-  color:#fff;
-  margin:0 20px;
-  padding:5px 15px;
-  text-decoration:none;
+dl {
+  width: auto;
+}
+
+dt {
+  border-bottom: 1px solid #ccc;
+  float: left;
+  padding: 10px 5px;
+}
+
+dd {
+  border-bottom: 1px solid #ccc;
+  margin-left: 100px;
+  padding: 10px 5px;
+}
+
+.new {
+  background-color: red;
+  border-radius: 5px;
+  color: #fff;
+  margin: 0 20px;
+  padding: 5px 15px;
+  text-decoration: none;
 }
 
 table {
@@ -11357,19 +11366,27 @@ table {
 }
 
 .textlines {
-  border: 2px solid #0a0;  /* 枠線 */
-  border-radius: 0.67em;   /* 角丸 */
-  background-color: snow;  /* 背景色 */
-  width: 100%;             /* 横幅いっぱいにする */
-  box-sizing: border-box;  /* ※これがないと横にはみ出る */
-  height: 50px;           /* 高さ */
-  font-size: 1em;          /* 文字サイズ */
-  line-height: 1.2px;        /* 行の高さ */
+  border: 2px solid #0a0;
+  /* 枠線 */
+  border-radius: 0.67em;
+  /* 角丸 */
+  background-color: snow;
+  /* 背景色 */
+  width: 100%;
+  /* 横幅いっぱいにする */
+  box-sizing: border-box;
+  /* ※これがないと横にはみ出る */
+  height: 50px;
+  /* 高さ */
+  font-size: 1em;
+  /* 文字サイズ */
+  line-height: 1.2px;
+  /* 行の高さ */
 }
 
-.block{
+.block {
   text-align: center;
-  margin: auto; 
+  margin: auto;
 }
 
 .table-hover {
@@ -11384,10 +11401,14 @@ table {
   content: counter(rowCount);
 }
 
-.successd{
+.successd {
   background-color: rgb(252, 195, 195);
 }
 
-.excess{
+.excess {
   background-color: rgb(247, 255, 99);
+}
+
+.deadline {
+  background-color: rgb(147, 221, 255);
 }

@@ -27,6 +27,7 @@
         @include('parts.header')
         @yield('content')
         <script src="{{ mix('js/app.js') }}"></script>
+        <script src="{{asset('js/task.js')}}"></script>
         @section('contents')
     </body>
 </html>

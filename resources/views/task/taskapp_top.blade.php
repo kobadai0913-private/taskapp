@@ -1,7 +1,7 @@
 @extends('layouts.taskapp')
 
 @section('content')
-    <br>    
+    <br> 
     @if(session('delete_message'))
         <div class="alert alert-danger">{{session('delete_message')}}</div>
     @endif 
@@ -10,9 +10,6 @@
     @endif 
     @if(session('update_message'))
         <div class="alert alert-primary">{{session('update_message')}}</div>
-    @endif 
-    @if(session('csvoutput_message'))
-        <div class="alert alert-primary">{{session('csvoutput_message')}}</div>
     @endif 
     @if(session('sendmail_message'))
         <div class="alert alert-success">{{session('sendmail_message')}}</div>
@@ -81,8 +78,8 @@
                                 <td>{{ $task->user_id }}</a></td>
                                 <td>{{ $task->task_name }}</a></td>
                                 <td>{{ $task->task_detail }}</td>
-                                <td>{{ $task->task_start_date }} {{ $task->task_start_time }}</td>
-                                <td>{{ $task->task_end_date }} {{ $task->task_end_time }}</td>
+                                <td>{{ $task->task_start_datetime }}</td>
+                                <td>{{ $task->task_end_datetime }}</td>
                             </tr>
                         @elseif($task->completed == "today_incomplete")
                             <tr class="successd">
@@ -90,8 +87,8 @@
                                 <td>{{ $task->user_id }}</a></td>
                                 <td>{{ $task->task_name }}</a></td>
                                 <td>{{ $task->task_detail }}</td>
-                                <td>{{ $task->task_start_date }} {{ $task->task_start_time }}</td>
-                                <td>{{ $task->task_end_date }} {{ $task->task_end_time }}</td>
+                                <td>{{ $task->task_start_datetime }}</td>
+                                <td>{{ $task->task_end_datetime }}</td>
                             </tr>
                         @else
                             <tr>
@@ -99,8 +96,8 @@
                                 <td>{{ $task->user_id }}</a></td>
                                 <td>{{ $task->task_name }}</a></td>
                                 <td>{{ $task->task_detail }}</td>
-                                <td>{{ $task->task_start_date }} {{ $task->task_start_time }}</td>
-                                <td>{{ $task->task_end_date }} {{ $task->task_end_time }}</td>
+                                <td>{{ $task->task_start_datetime }}</td>
+                                <td>{{ $task->task_end_datetime }}</td>
                             </tr>
                         @endif
                     @endforeach
@@ -123,22 +120,29 @@
                         <tr class="excess">
                             <td></td>
                             <td><a href="/task/detail/{{$task->task_id}}">&#x26a0;{{ $task->task_name }}</a></td>
-                            <td>{{ $task->task_start_date }} {{ $task->task_start_time }}</td>
-                            <td>{{ $task->task_end_date }} {{ $task->task_end_time }}</td>
+                            <td>{{ $task->task_start_datetime }}</td>
+                            <td>{{ $task->task_end_datetime }}</td>
                         </tr>
                     @elseif($task->completed == "today_incomplete")
                         <tr class="successd">
                             <td></td>
                             <td><a href="/task/detail/{{$task->task_id}}">{{ $task->task_name }}</a></td>
-                            <td>{{ $task->task_start_date }} {{ $task->task_start_time }}</td>
-                            <td>{{ $task->task_end_date }} {{ $task->task_end_time }}</td>
+                            <td>{{ $task->task_start_datetime }}</td>
+                            <td>{{ $task->task_end_datetime }}</td>
+                        </tr>
+                    @elseif($task->completed == "deadline_incomplete")
+                        <tr class="deadline">
+                            <td></td>
+                            <td><a href="/task/detail/{{$task->task_id}}">&#x23F1;{{ $task->task_name }}</a></td>
+                            <td>{{ $task->task_start_datetime }}</td>
+                            <td>{{ $task->task_end_datetime }}</td>
                         </tr>
                     @else
                         <tr>
                             <td></td>
                             <td><a href="/task/detail/{{$task->task_id}}">{{ $task->task_name }}</a></td>
-                            <td>{{ $task->task_start_date }} {{ $task->task_start_time }}</td>
-                            <td>{{ $task->task_end_date }} {{ $task->task_end_time }}</td>
+                            <td>{{ $task->task_start_datetime }}</td>
+                            <td>{{ $task->task_end_datetime }}</td>
                         </tr>
                     @endif
                 @endforeach
@@ -151,5 +155,9 @@
     @if(session('admin') == 'admin')
         <a class="btn btn-primary" href="/information/add" role="button" style="margin: 20px;">インフォメーションを追加する</a>
     @endif
-        <a class="btn btn-primary disabled" href="/task/csv/{{session('user_id')}}" style="margin: 20px;">CSV出力</a>
+    @if(empty($tasks))
+        <a class="btn btn-primary disabled" href="/task/csv" style="margin: 20px;">CSV出力</a>
+    @else
+        <a class="btn btn-primary" href="/task/csv" style="margin: 20px;">CSV出力</a>
+    @endif
 @endsection

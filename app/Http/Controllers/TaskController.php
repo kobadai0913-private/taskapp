@@ -5,24 +5,26 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use app\Rules;
 use Carbon\Carbon;
 use Validator;
-use Timestamp;
-use DateTime;
 use Illuminate\Support\Facades\Log;
+
+use App\Model\Task;
+use App\Model\User;
+use App\Model\Information;
 
 class TaskController extends Controller
 {
     //タスク修正(get)
     public function task_fix(Request $request){
 
-        $param = [
-            "task_id" => $request->task_id,
-            "start_time" => '%k:%i',
-            "end_time" => '%k:%i',
-        ];
-        $items = DB::select('select task_id, task_name, task_detail, task_start_date, task_end_date, time_format(task_start_time,:start_time) as task_start_time, time_format(task_end_time,:end_time) as task_end_time from user_taskmanage where task_id = :task_id',$param);
+        //入力内容取得
+        $task_id = $request->task_id;
+
+        //タスクデータ取得
+        $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y-%m-%dT%k:%i") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y-%m-%dT%k:%i") as task_end_datetime'),'completed')
+                            ->where('task_id',$task_id)
+                            ->get();
 
         //タスク修正画面に遷移
         return view('task.task_fix',['tasks'=>$items]);
@@ -30,74 +32,94 @@ class TaskController extends Controller
 
     //タスク修正(post)
     public function task_fix_registration(Request $request){
-        //バリデーション処理
-        $rules = [
-            'task_name' => 'required',
-            'task_detail' => 'required',
-            'task_start_date' => 'required|after:yesterday',
-            'task_end_date' => 'required|after:task_start_date',
-            'task_start_time' => 'required',
-            'task_end_time' => 'required',
-        ];
-        $messages=[
-                'task_name.required' => 'タスク名は必ず入力してください。',
-                'task_detail.required' => 'タスクの詳細は必ず入力して下さい。',
-                'task_start_date.required' => 'タスク開始日付は必ず入力して下さい。',
-                'task_start_date.after' => 'タスク開始日付には今日以降の日付を入力して下さい。',
-                'task_end_date.required' => 'タスク終了日付は必ず入力して下さい。',
-                'task_end_date.after' => 'タスク終了日付にはタスク開始日付以降の日付を入力して下さい。',
-                'task_start_time.required' => 'タスク開始時間は必ず入力して下さい。',
-                'task_end_time.required' => 'タスク終了時間は必ず入力して下さい。',
-        ];
-        $validator  = Validator::make($request->all(), $rules, $messages);
+
+         //入力内容取得
+         $task_id = $request->task_id;
+         $task_name = $request->task_name;
+         $task_detail = $request->task_detail;
+         $task_start_datetime = $request->task_start_datetime;
+         $task_end_datetime = $request->task_end_datetime;
+         $task_start_datetime_status = $request->task_start_datetime_status;
+ 
+         //作業用変数
+         $work_start_datetime;
+         $work_start_date;
+         $work_end_datetime;
+         $work_end_date;
+         $work_id;
+         $work_column;
+         $work_max_id;
+         $now;
+         $now_date;
+         $now_datetime;
+         $completed;
+ 
+         //バリデーション情報取得
+         $rules = Task::$rules;
+         $messages = Task::$messages;
+ 
+         //insertパラメータ取得
+         $insert_param = Task::$insert_param;
+
+        //タスクパラメータ削除処理
+        if($task_start_datetime_status=='true'){
+            unset($rules['task_start_datetime']);
+            unset($messages['task_start_datetime.required']);
+        }
 
         //エラー処理
+        $validator  = Validator::make($request->all(), $rules, $messages);
         $request->session()->flash('task_errors', '入力項目に問題があります。');
         if($validator->fails()){
-            return redirect('/task/fix/'.$request->task_id)
+            return redirect('/task/fix/'.$task_id)
             ->withErrors($validator)
             ->withInput();
         }
 
-        //更新処理
-        $completed = '';
-        $task_start_date = $request->task_start_date;
-        $task_start_time = $request->task_start_time;
-        $task_end_date = $request->task_end_date;
-        $task_end_time = $request->task_end_time;
-
-        //日付比較処理
-        $now = Carbon::now();
-        $now_date = $now->format("Y/m/d");
-        $task_end_date = Carbon::parse($task_end_date);
-        $task_end_date = $task_end_date->format("Y/m/d");
-        //今日の日付・時間連結処理
-        $task_start = str($task_start_date).str($task_start_time);
-        $task_start = Carbon::parse($task_start);
-        $task_start = $task_start->format('Y-m-d H:i:s');
-        $task_end = str($task_end_date).str($task_end_time);
-        $task_end = Carbon::parse($task_end);
-        $task_end = $task_end->format('Y-m-d H:i:s');
-        $now = $now->format('Y-m-d H:i:s');
-        if($task_end<$now){
-            $completed = "excess_incomplete";   
-        }elseif(($task_start<=$now_date)&&($task_end>=$now_date)){
-            $completed = "today_incomplete";
+        //追加タスクパラメータセット処理
+        if($task_start_datetime_status=='true'){
+             //insertパラメータセット
+             unset($insert_param['user_id']);
+             $insert_param['task_id']=$task_id;
+             $insert_param['task_name']=$task_name;
+             $insert_param['task_detail']=$task_detail;
+             $insert_param['task_start_datetime']=$task_start_datetime;
+             $insert_param['task_end_datetime']=$task_end_datetime;
+             $insert_param['completed']='deadline_incomplete';
         }else{
-            $completed = "future_incomplete";
-        }
-        $param = [
-            'task_id' => $request->task_id,
-            'task_name' => $request->task_name,
-            'task_detail' => $request->task_detail,
-            'task_start_date' => $task_start_date,
-            'task_start_time' => $task_start_time,
-            'task_end_date' => $task_end_date,
-            'task_end_time' => $task_end_time,
-            'completed' => $completed,
-        ];
+            //日付・時間処理
+            //タスク開始日付・時間
+            $work_start_datetime = Carbon::parse($task_start_datetime);
+            $work_start_date = $work_start_datetime->format("Y/m/d");
+            $work_start_datetime = $work_start_datetime->format('Y-m-d H:i:s');
+            //タスク終了日付・時間
+            $work_end_datetime = Carbon::parse($task_end_datetime);
+            $work_end_date = $work_end_datetime->format("Y/m/d");
+            $work_end_datetime = $work_end_datetime->format('Y-m-d H:i:s');
+            //今日の日付・時間
+            $now = Carbon::now();
+            $now_date = $now->format("Y/m/d");
+            $now_datetime = $now->format('Y-m-d H:i:s');
 
-        DB::update('update user_taskmanage set task_name = :task_name, task_detail = :task_detail, task_start_date = :task_start_date, task_start_time = :task_start_time, task_end_date = :task_end_date, task_end_time = :task_end_time, completed = :completed where task_id = :task_id',$param);
+            //フラグ設定処理
+            if($work_end_datetime<$now_datetime){
+                $completed = "excess_incomplete";   
+            }elseif(($work_start_date<=$now_date)&&($work_end_date>=$now_date)){
+                $completed = "today_incomplete";
+            }else{
+                $completed = "future_incomplete";
+            }
+            unset($insert_param['user_id']);
+            unset($insert_param['task_id']);
+            $insert_param['task_name']=$task_name;
+            $insert_param['task_detail']=$task_detail;
+            $insert_param['task_start_datetime']=$task_start_datetime;
+            $insert_param['task_end_datetime']=$task_end_datetime;
+            $insert_param['completed']=$completed;
+        }
+
+        //タスク更新処理
+        Task::where('task_id',$task_id)->update($insert_param);
         $request->session()->flash('update_message', 'タスクを更新しました');
         
         //タスク一覧に画面遷移する
@@ -112,178 +134,327 @@ class TaskController extends Controller
 
     //タスク追加(post)
     public function task_insert_registration(Request $request){
-        //バリデーション処理
-        $rules = [
-            'task_name' => 'required',
-            'task_detail' => 'required',
-            'task_start_date' => 'required|after:yesterday',
-            'task_end_date' => 'required|after:yesterday',
-            'task_start_time' => 'required',
-            'task_end_time' => 'required',
-        ];
-    
-        $messages=[
-                'task_name.required' => 'タスク名は必ず入力してください。',
-                'task_detail.required' => 'タスクの詳細は必ず入力して下さい。',
-                'task_start_date.required' => 'タスク開始日付は必ず入力して下さい。',
-                'task_start_date.after' => 'タスク開始日付には今日以降の日付を入力して下さい。',
-                'task_end_date.required' => 'タスク終了日付は必ず入力して下さい。',
-                'task_end_date.after' => 'タスク終了日付には今日以降の日付を入力して下さい。',
-                'task_start_time.required' => 'タスク開始時間は必ず入力して下さい。',
-                'task_end_time.required' => 'タスク終了時間は必ず入力して下さい。',
-        ];
-        $validator  = Validator::make($request->all(), $rules, $messages);
+        //セッション情報取得
+        $user_id = $request->session()->get('user_id');
+
+        //入力内容取得
+        $task_id;
+        $task_name = $request->task_name;
+        $task_detail = $request->task_detail;
+        $task_start_datetime = $request->task_start_datetime;
+        $task_end_datetime = $request->task_end_datetime;
+        $task_start_datetime_status = $request->task_start_datetime_status;
+        $task_start_datetime_counter = $request->task_start_datetime_counter;
+        $task_end_datetime_counter = $request->task_end_datetime_counter;
+
+        //作業用変数
+        $work_start_datetime;
+        $work_start_date;
+        $work_end_datetime;
+        $work_end_date;
+        $work_column;
+        $work_max_id;
+        $now;
+        $now_date;
+        $now_datetime;
+        $completed;
+
+        //バリデーション情報取得
+        $rules = Task::$rules;
+        $messages = Task::$messages;
+
+        //insertパラメータ取得
+        $insert_param = Task::$insert_param;
+
+        //追加タスク件数
+        $insert_count = 1;
+
+        //タスクパラメータ削除処理
+        if($task_start_datetime_status=='true'){
+            unset($rules['task_start_datetime']);
+            unset($messages['task_start_datetime.required']);
+            unset($messages['task_start_datetime.task_datetime']);
+        }       
+        if($task_start_datetime_counter!=''){
+            for($i=0; $i<$task_start_datetime_counter; $i++){
+                $work_column = "task_start_datetime".($i+1);
+                $rules = $rules+[$work_column => 'required|task_datetime'];
+                $messages = $messages+[$work_column.'.required' => 'タスク開始日付・時間は必ず入力して下さい。'];
+                $messages = $messages+[$work_column.'.task_datetime' => 'タスク開始日付には過去の日付を登録することはできません。'];
+                $request->session()->put('task_start_datetime_counter',$task_start_datetime_counter);
+            }
+        }
+        if($task_end_datetime_counter!=''){
+            for($i=0; $i<$task_end_datetime_counter; $i++){
+                $work_column = "task_end_datetime".($i+1);
+                $rules = $rules+[$work_column => 'required|after_or_equal:task_start_datetime'.($i+1)];
+                $messages = $messages+[$work_column.'.required' => 'タスク開始日付・時間は必ず入力して下さい。'];
+                $messages = $messages+[$work_column.'.after_or_equal' => 'タスク終了日付にはタスク開始日付・時間以降の日付を入力して下さい。'];
+                $request->session()->put('task_end_datetime_counter',$task_end_datetime_counter);
+            }
+        }
 
         //エラー処理
+        $validator  = Validator::make($request->all(), $rules, $messages);
         $request->session()->flash('task_errors', '入力項目に問題があります。');
         if($validator->fails()){
-            return redirect('/task/add')
+            return redirect('task/add')
             ->withErrors($validator)
             ->withInput();
         }
 
         //タスク追加処理
-        $completed  = '';
-        $user_id = $request->session()->get('user_id');
-        $maxId = DB::table('user_taskmanage')
-            ->select('task_id')
-            ->orderBy('task_id','desc')
-            ->first();
-        if($maxId==null){
+        //タスクID作成
+        $work_max_id = Task::select('task_id')
+                            ->orderBy('task_id','desc')
+                            ->first();
+        if($work_max_id==null){
             $task_id = 1;
         }else{
-            $task_id = $maxId->task_id+1;
+            $task_id = $work_max_id->task_id+1;
         }
 
-        //更新処理
-        $completed = '';
-        $task_start_date = $request->task_start_date;
-        $task_start_time = $request->task_start_time;
-        $task_end_date = $request->task_end_date;
-        $task_end_time = $request->task_end_time;
-
-        //日付比較処理
-        $now = Carbon::now();
-        $now_date = $now->format("Y/m/d");
-        $task_end_date = Carbon::parse($task_end_date);
-        $task_end_date = $task_end_date->format("Y/m/d");
-        //今日の日付・時間連結処理
-        $task_start = str($task_start_date).str($task_start_time);
-        $task_start = Carbon::parse($task_start);
-        $task_start = $task_start->format('Y-m-d H:i:s');
-        $task_end = str($task_end_date).str($task_end_time);
-        $task_end = Carbon::parse($task_end);
-        $task_end = $task_end->format('Y-m-d H:i:s');
-        $now = $now->format('Y-m-d H:i:s');
-        if($task_end<$now){
-            $completed = "excess_incomplete";   
-        }elseif(($task_start<=$now_date)&&($task_end>=$now_date)){
-            $completed = "today_incomplete";
+        //追加タスクパラメータセット処理
+        if($task_start_datetime_status=='true'){
+            //insertパラメータセット
+            $insert_param['user_id']=$user_id;
+            $insert_param['task_id']=$task_id;
+            $insert_param['task_name']=$task_name;
+            $insert_param['task_detail']=$task_detail;
+            $insert_param['task_start_datetime']=$task_start_datetime;
+            $insert_param['task_end_datetime']=$task_end_datetime;
+            $insert_param['completed']='deadline_incomplete';
         }else{
-            $completed = "future_incomplete";
-        }
-        $param = [
-            'user_id' => $user_id,
-            'task_id' => $task_id,
-            'task_name' => $request->task_name,
-            'task_detail' => $request->task_detail,
-            'task_start_date' => $task_start_date,
-            'task_start_time' => $task_start_time,
-            'task_end_date' => $task_end_date,
-            'task_end_time' => $task_end_time,
-            'completed' => $completed,
-        ];
+            //日付・時間処理
+            //タスク開始日付・時間
+            $work_start_datetime = Carbon::parse($task_start_datetime);
+            $work_start_date = $work_start_datetime->format("Y/m/d");
+            $work_start_datetime = $work_start_datetime->format('Y-m-d H:i:s');
+            //タスク終了日付・時間
+            $work_end_datetime = Carbon::parse($task_end_datetime);
+            $work_end_date = $work_end_datetime->format("Y/m/d");
+            $work_end_datetime = $work_end_datetime->format('Y-m-d H:i:s');
+            //今日の日付・時間
+            $now = Carbon::now();
+            $now_date = $now->format("Y/m/d");
+            $now_datetime = $now->format('Y-m-d H:i:s');
 
-        DB::insert('insert into user_taskmanage values(:task_id, :task_name, :task_detail, :task_start_date, :task_end_date, :task_start_time, :task_end_time, :user_id, :completed)',$param);
-        $request->session()->flash('insert_message', 'タスクを追加しました。');
+            //フラグ設定処理
+            if($work_end_datetime<$now_datetime){
+                $completed = "excess_incomplete";   
+            }elseif(($work_start_date<=$now_date)&&($work_end_date>=$now_date)){
+                $completed = "today_incomplete";
+            }else{
+                $completed = "future_incomplete";
+            }
+            //insertパラメータセット
+            $insert_param['user_id']=$user_id;
+            $insert_param['task_id']=$task_id;
+            $insert_param['task_name']=$task_name;
+            $insert_param['task_detail']=$task_detail;
+            $insert_param['task_start_datetime']=$work_start_datetime;
+            $insert_param['task_end_datetime']=$work_end_datetime;
+            $insert_param['completed']=$completed;
+        }
+
+        //初期タスク追加処理
+        Task::insert($insert_param);
+
+        //追加タスク処理
+        if($task_start_datetime_counter!=''){
+            //入力内容取得
+            $task_start_datetime1 = $request->task_start_datetime1;
+            $task_end_datetime1 = $request->task_end_datetime1;
+            $task_start_datetime2 = $request->task_start_datetime2;
+            $task_end_datetime2 = $request->task_end_datetime2;
+            $task_start_datetime3 = $request->task_start_datetime3;
+            $task_end_datetime3 = $request->task_end_datetime3;
+            $task_start_datetime4 = $request->task_start_datetime4;
+            $task_end_datetime4 = $request->task_end_datetime4;
+            $task_start_datetime5 = $request->task_start_datetime5;
+            $task_end_datetime5 = $request->task_end_datetime5;
+
+            for($i=0; $i<$task_start_datetime_counter; $i++){
+                //タスク追加処理
+                if($i==0){
+                    $work_start_datetime = $task_start_datetime1;
+                    $work_end_datetime = $task_end_datetime1;
+                }elseif($i==1){
+                    $work_start_datetime = $task_start_datetime2;
+                    $work_end_datetime = $task_end_datetime2;
+                }elseif($i==2){
+                    $work_start_datetime = $task_start_datetime3;
+                    $task_end_datetime = $task_end_datetime3;
+                }elseif($i==3){
+                    $work_start_datetime = $task_start_datetime4;
+                    $work_end_datetime = $task_end_datetime4;
+                }elseif($i==4){
+                    $work_start_datetime = $task_start_datetime5;
+                    $work_end_datetime = $task_end_datetime5;
+                }
+
+                //日付・時間処理
+                //タスク開始日付・時間
+                $work_start_datetime = Carbon::parse($work_start_datetime);
+                $work_start_date = $work_start_datetime->format("Y/m/d");
+                $work_start_datetime = $work_start_datetime->format('Y-m-d H:i:s');
+                //タスク終了日付・時間
+                $work_end_datetime = Carbon::parse($work_end_datetime);
+                $work_end_date = $work_end_datetime->format("Y/m/d");
+                $work_end_datetime = $work_end_datetime->format('Y-m-d H:i:s');
+                //今日の日付・時間
+                $now = Carbon::now();
+                $now_date = $now->format("Y/m/d");
+                $now_datetime = $now->format('Y-m-d H:i:s');
+
+                //フラグ設定処理
+                if($work_end_datetime<$now_datetime){
+                    $completed = "excess_incomplete";   
+                }elseif(($work_start_date<=$now_date)&&($work_end_date>=$now_date)){
+                    $completed = "today_incomplete";
+                }else{
+                    $completed = "future_incomplete";
+                }
+
+                //タスクID作成処理
+                $work_max_id = Task::select('task_id')
+                            ->orderBy('task_id','desc')
+                            ->first();
+                if($work_max_id==null){
+                    $task_id = 1;
+                }else{
+                    $task_id = $work_max_id->task_id+1;
+                }
+
+                //insertパラメータセット
+                $insert_param['user_id']=$user_id;
+                $insert_param['task_id']=$task_id;
+                $insert_param['task_name']=$task_name;
+                $insert_param['task_detail']=$task_detail;
+                $insert_param['task_start_datetime']=$work_start_datetime;
+                $insert_param['task_end_datetime']=$work_end_datetime;
+                $insert_param['completed']=$completed;
+
+                //追加タスク追加
+                Task::insert($insert_param);
+                $insert_count += 1;
+            }
+        }
         
+        //タスク追加メッセージ
+        $request->session()->flash('insert_message', str($insert_count).'件のタスクを追加しました。');
+
         //タスク一覧画面に遷移
         return redirect('/task/app');
     }
 
     //タスク一覧(get)
     public function taskapp_list(Request $request){
+
+        //タスク日付カウンター削除
+        $request->session()->forget('task_start_datetime_counter');
+        $request->session()->forget('task_end_datetime_counter');
+
+        //変数定義
+        $users_data;
+        $user_admin;
+        $user_name;
+        $information_datas;
+        $covid_data;
+        $now_date;
+
+        //ユーザID取得
         $user_id = $request->session()->get('user_id');
 
         //ユーザ権限確認
-        $user_param = [
-            'user_id' => $user_id,
-        ];
-        $get_users = DB::select('select admin, user_name from user where user_id = :user_id',$user_param);
-        foreach($get_users as $user_data){
+        $users_data = User::select('admin','user_name')
+                            ->where('user_id',$user_id)
+                            ->get();
+        foreach($users_data as $user_data){
             $user_admin = $user_data->admin;
             $user_name = $user_data->user_name;
         }
+
+        //権限付与
         $request->session()->put('admin',$user_admin);
 
         //タスク権限更新処理
         self::usertask_date_update($user_id);
 
+        //タスクデータ取得
         if($user_admin == "admin"){
-            $param = [
-                "start_day" => '%Y年%m月%d日',
-                "start_time" => '%k時%i分',
-                "end_day" => '%Y年%m月%d日',
-                "end_time" => '%k時%i分',
-            ];
-            $items = DB::select('select task_id, task_name, task_detail, date_format(task_start_date,:start_day) as task_start_date, date_format(task_end_date,:end_day) as task_end_date, time_format(task_start_time,:start_time) as task_start_time, time_format(task_end_time,:end_time) as task_end_time, user_id, completed from user_taskmanage order by user_id',$param);
+            $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                            ->orderby('user_id','asc')
+                            ->get();
         }else{
-            $param = [
-                "user_id" => $user_id,
-                "start_day" => '%Y年%m月%d日',
-                "start_time" => '%k時%i分',
-                "end_day" => '%Y年%m月%d日',
-                "end_time" => '%k時%i分',
-            ];
-            $items = DB::select('select task_id, task_name, task_detail, date_format(task_start_date,:start_day) as task_start_date, time_format(task_start_time,:start_time) as task_start_time, date_format(task_end_date,:end_day) as task_end_date, time_format(task_end_time,:end_time) as task_end_time, user_id, completed from user_taskmanage where user_id=:user_id',$param);
+            $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                            ->where('user_id',$user_id)
+                            ->get();
         }
-        $select_sql = 'select information_id, information_name, information_detail, information_date,'.str($user_name).'_flg from information_board order by information_id desc';
-        $informations = DB::select($select_sql);
+
+        //インフォメーション情報取得
+        $information_datas = Information::select('information_id','information_name','information_detail','information_date',str($user_name).'_flg')
+                                            ->orderby('information_id','desc')
+                                            ->get();
         
         //コロナapi呼び出し
-        // APIアクセスURL
-        $url = 'https://covid19-japan-web-api.now.sh/api/v1/prefectures';
-        // ストリームコンテキストのオプションを作成
-        $options = array(
-            // HTTPコンテキストオプションをセット
-            'http' => array(
-                'method'=> 'GET',
-                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
-            )
-        );
-        // ストリームコンテキストの作成
-        $context = stream_context_create($options);
-        $raw_data = file_get_contents($url, false,$context);
-        $result = json_decode($raw_data, true);
-        $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
+        $covid_data = self::covid19();
 
         //現在時間取得
-        $date = date("Y年m月d日 H時i分s秒"); 
+        $now_date = date("Y年m月d日 H時i分s秒"); 
 
         //タスク一覧画面に遷移
-        return view('task.taskapp_top',['tasks'=>$items, 'api'=>$data, 'date'=>$date, 'informations'=>$informations, 'user_name'=>$user_name]);
+        return view('task.taskapp_top',['tasks'=>$items, 'api'=>$covid_data, 'date'=>$now_date, 'informations'=>$information_datas, 'user_name'=>$user_name]);
+    }
+
+    //タスク詳細(get)
+    public function task_detail(Request $request){
+        //タスクID取得
+        $task_id = $request->task_id;
+
+        //タスク情報取得
+        $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'completed')
+                            ->where('task_id',$task_id)
+                            ->get();
+
+        //タスク詳細画面に遷移
+        return view('task.task_detail',['tasks'=>$items]);
     }
 
     //タスク削除(get)
     public function task_delete(Request $request){
-        $param = [
-            'task_id' => $request->task_id,
-        ];
+        //タスクID取得
+        $task_id = $request->task_id;
+
+        //変数定義
+        $task_datas;
+
         //指定したタスクID以上のタスクIDを昇順抽出
-        $task_ids = DB::select('select task_id from user_taskmanage where task_id > :task_id order by task_id asc',$param);
-        DB::delete('delete from user_taskmanage where task_id = :task_id',$param);
-        foreach($task_ids as $task_id){
-            $param = [
-                'task_id' => $task_id->task_id,
+        $task_datas = Task::select('task_id')
+                            ->where('task_id','>',$task_id)
+                            ->orderby('task_id','asc')
+                            ->get();
+
+        //タスクデータ削除
+        Task::where('task_id',$task_id)
+                ->delete();
+
+        foreach($task_datas as $task_data){
+            //タスクID取得
+            $get_task_id = $task_data->task_id;
+
+            //タスクID更新
+            $update_param=[
+                'task_id'=>($get_task_id-1),
             ];
-            DB::update('update user_taskmanage set task_id = :task_id - 1 where task_id = :task_id ',$param);
+            Task::where('task_id',$get_task_id)->update($update_param);
         }
+
         $request->session()->flash('delete_message', 'タスクを削除しました。');
         
         //タスク一覧画面に遷移
         return redirect('/task/app');
     }
-
 
     //ログイン(get)
     public function task_login(){
@@ -370,6 +541,8 @@ class TaskController extends Controller
         $user_name = $request->user_name;
         $user_password = $request->user_password;
         $user_email = $request->user_email;
+        $admin = $request->authority;
+
         $maxId = DB::table('user')
             ->select('user_id')
             ->orderBy('user_id','desc')
@@ -380,12 +553,19 @@ class TaskController extends Controller
         }else{
             $user_id = $maxId->user_id+1;
         }
+
+        //権限設定
+        if($admin == 'user_authority'){
+            $insert_admin = "user";
+        }else{
+            $insert_admin = "admin";
+        }
         $param = [
             'user_id' => $user_id,
             'user_name' => $request->user_name,
             'user_password' => $request->user_password,
             'user_email' => $request->user_email,
-            'admin' => "user",
+            'admin' => $insert_admin,
         ];
         DB::insert('insert into user(user_id, user_name, user_pass, user_email, admin) values(:user_id, :user_name, :user_password, :user_email, :admin)',$param);
         $alter_sql = 'alter table information_board add column '.str($request->user_name).'_flg boolean default false';
@@ -400,18 +580,31 @@ class TaskController extends Controller
     public function task_csv(Request $request)
     {
         $user_id = $request->session()->get('user_id');
+        $counter = 1;
+        $completed = '';
         $param = [
             "user_id" => $user_id,
-            "day" => '%Y年%m月%d日',
-            "time" => '%k時%i分',
+            "start_datetime" => '%Y年%m月%d日 %k時%i分',
+            "end_datetime" => '%Y年%m月%d日 %k時%i分',
         ];
-        $items = DB::select('select task_id, task_name, task_detail, date_format(task_date,:day) as task_date, time_format(task_time,:time) as task_time from user_taskmanage where user_id=:user_id',$param);
+        $items = DB::select('select task_id, task_name, task_detail, date_format(task_start_datetime,:start_datetime) as task_start_datetime, date_format(task_end_datetime,:end_datetime) as task_end_datetime, completed from user_taskmanage where user_id=:user_id',$param);
         $data = [];
-        $data[] = ['No', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間'];
+        $data[] = ['タスク一覧'];
+        $data[] = ['No', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間','ステータス'];
         foreach($items as $item){
-            $data[] = [$item->task_id,$item->task_name,$item->task_detail,$item->task_date,$item->task_time];
+            if($item->completed=='excess_incomplete'){
+                $completed = "未完了のタスク";
+            }elseif($item->completed=='today_incomplete'){
+                $completed = "今日のタスク";
+            }elseif($item->completed=='future_incomplete'){
+                $completed = "明日以降のタスク";
+            }else{
+                $completed = "期限タスク";
+            }
+            $data[] = [$counter,$item->task_name,$item->task_detail,$item->task_start_datetime,$item->task_end_datetime,$completed];
+            $counter += 1;
         }
-        $save_file = 'C:\task.csv';
+        $save_file = storage_path('csv/task.csv');
         $file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
         $file->setCsvControl(",");                   // カンマ区切り
         foreach ($data as $row) {
@@ -419,87 +612,7 @@ class TaskController extends Controller
             $file->fputcsv($row);
         }
 
-        // 出力バッファをopen
-        $stream = fopen('php://output', 'w');
-        // 文字コードをShift-JISに変換
-        stream_filter_prepend($stream,'convert.iconv.utf-8/cp932//TRANSLIT');
-        // ヘッダー
-        fputcsv($stream, ['No', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間']);
-        // データ
-        foreach ($items as $item) {
-            fputcsv($stream, [$item->task_id,$item->task_name,$item->task_detail,$item->task_date,$item->task_time]);
-        }
-        fclose($stream);
-        $request->session()->flash('csvoutput_message', 'csv出力が完了しました。');
-
-        //タスク一覧画面に遷移
-        return redirect('/task/app');
-    }
-
-     //タスク詳細(get)
-     public function task_detail(Request $request){
-        $param = [
-            "task_id" => $request->task_id,
-            "start_day" => '%Y年%m月%d日',
-            "start_time" => '%k時%i分',
-            "end_day" => '%Y年%m月%d日',
-            "end_time" => '%k時%i分',
-        ];
-        $items = DB::select('select task_id, task_name, task_detail, date_format(task_start_date,:start_day) as task_start_date, time_format(task_start_time,:start_time) as task_start_time, date_format(task_end_date,:end_day) as task_end_date, time_format(task_end_time,:end_time) as task_end_time, completed from user_taskmanage where task_id = :task_id',$param);
-        
-        //タスク詳細画面に遷移
-        return view('task.task_detail',['tasks'=>$items]);
-    }
-
-    //タスク追加(get)
-    public function taskocr_p(){
-        //タスク追加画面に遷移
-        return view('task.taskocr');
-    }
-
-    //python呼び出し
-    public function taskocr(Request $request){
-        if(strpos($request->file_name,'pdf') !== false){
-            $command = "python ../app/Http/Controllers/ocr.py ".$request->file_name;
-        }else{
-            $command = "python ../app/Http/Controllers/pictureocr.py ".$request->file_name;
-        }
-        exec($command , $outputs);
-        $data = mb_convert_encoding ($outputs , 'UTF-8', 'ASCII, JIS, UTF-8, SJIS');
-
-        //ocr画面に遷移
-        return view('task.taskocr', ['ocr' => $data]);
-    }
-
-    //郵便番号検索画面遷移
-    public function taskzipcode(){
-        //タスク追加画面に遷移
-        return view('task.taskzipcode');
-    }
-
-    //住所取得
-    public function taskgetzipcode(Request $request){
-        // APIアクセスURL
-        $url = 'http://zipcloud.ibsnet.co.jp/api/search?zipcode='.$request->zipcode;
-        // ストリームコンテキストのオプションを作成
-        $options = array(
-            // HTTPコンテキストオプションをセット
-            'http' => array(
-                'method'=> 'GET',
-                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
-            )
-        );
-        // ストリームコンテキストの作成
-        $context = stream_context_create($options);
-        $raw_data = file_get_contents($url, false,$context);
-        $result = json_decode($raw_data, true);
-
-        $data1 = [$result["results"][0]["address1"].$result["results"][0]["address2"].$result["results"][0]["address3"]];
-        $data2 = [$result["results"][0]["kana1"].$result["results"][0]["kana2"].$result["results"][0]["kana3"]];
-        $resultdata = array_merge($data1,$data2);
-
-        //ocr画面に遷移
-        return view('task.taskzipcode', ['zipcode' => $resultdata]);
+        return response()->download(storage_path('csv/task.csv'));
     }
 
     //タスク完了更新処理
@@ -520,36 +633,60 @@ class TaskController extends Controller
         $param = [
             'task_id' => $request->task_id,
         ];
-        $datas = DB::select('select task_start_date, task_start_time, task_end_date, task_end_time from user_taskmanage where task_id = :task_id',$param);
+        $datas = DB::select('select task_start_datetime, task_end_datetime from user_taskmanage where task_id = :task_id',$param);
         foreach($datas as $task){
-            $task_start_date = $task->task_start_date;
-            $task_start_time = $task->task_start_time;
-            $task_end_date = $task->task_end_date;
-            $task_end_time = $task->task_end_time;
+            $task_start_datetime = $task->task_start_datetime;
+            $task_end_datetime = $task->task_end_datetime;
         }
          
-        //更新処理
-        $completed = '';
-    
-        //日付比較処理
-        $now = Carbon::now();
-        $now_date = $now->format("Y/m/d");
-        $task_end_date = Carbon::parse($task_end_date);
-        $task_end_date = $task_end_date->format("Y/m/d");
-        //今日の日付・時間連結処理
-        $task_start = str($task_start_date).str($task_start_time);
-        $task_start = Carbon::parse($task_start);
-        $task_start = $task_start->format('Y-m-d H:i:s');
-        $task_end = str($task_end_date).str($task_end_time);
-        $task_end = Carbon::parse($task_end);
-        $task_end = $task_end->format('Y-m-d H:i:s');
-        $now = $now->format('Y-m-d H:i:s');
-        if($task_end<$now){
-            $completed = "excess_incomplete";   
-        }elseif(($task_start<=$now_date)&&($task_end>=$now_date)){
-            $completed = "today_incomplete";
+        if($task_start_datetime == null){
+            //更新処理
+            $completed = '';
+
+            //日付・時間処理
+            //タスク終了日付・時間
+            $task_end_datetime = Carbon::parse($task_end_datetime);
+            $task_end_date = $task_end_datetime->format("Y/m/d");
+            $task_end_datetime = $task_end_datetime->format('Y-m-d H:i:s');
+            //今日の日付・時間
+            $now = Carbon::now();
+            $now_date = $now->format("Y/m/d");
+            $now_datetime = $now->format('Y-m-d H:i:s');
+
+            //フラグ設定処理
+            if($task_end_datetime<$now_datetime){
+                $completed = "excess_incomplete";   
+            }elseif(($task_end_date==$now_date)){
+                $completed = "today_incomplete";
+            }else{
+                $completed = "deadline_incomplete";
+            }
         }else{
-            $completed = "future_incomplete";
+            //更新処理
+            $completed = '';
+
+            //日付・時間処理
+            //タスク開始日付・時間
+            $task_start_datetime = Carbon::parse($task_start_datetime);
+            $task_start_date = $task_start_datetime->format("Y/m/d");
+            $task_start_datetime = $task_start_datetime->format('Y-m-d H:i:s');
+            //タスク終了日付・時間
+            $task_end_datetime = Carbon::parse($task_end_datetime);
+            $task_end_date = $task_end_datetime->format("Y/m/d");
+            $task_end_datetime = $task_end_datetime->format('Y-m-d H:i:s');
+            //今日の日付・時間
+            $now = Carbon::now();
+            $now_date = $now->format("Y/m/d");
+            $now_datetime = $now->format('Y-m-d H:i:s');
+
+            //フラグ設定処理
+            if($task_end_datetime<$now_datetime){
+                $completed = "excess_incomplete";   
+            }elseif(($task_start_date<=$now_date)&&($task_end_date>=$now_date)){
+                $completed = "today_incomplete";
+            }else{
+                $completed = "future_incomplete";
+            }
         }
         $param = [
             'task_id' => $request->task_id,
@@ -564,65 +701,117 @@ class TaskController extends Controller
 
     //タスク日付更新処理(user)
     public function usertask_date_update($user_id){
+
+        //通常タスク更新処理
         $param = [
             'user_id' => $user_id,
             'completed' => 'complete',
+            'deadline_completed' => 'deadline_incomplete',
         ];
-        $datas = DB::select('select task_id, task_start_date, task_start_time, task_end_date, task_end_time from user_taskmanage where user_id = :user_id and completed != :completed',$param);
+        $datas = DB::select('select task_id, task_start_datetime, task_end_datetime from user_taskmanage where user_id = :user_id and completed != :completed and completed != :deadline_completed',$param);
         foreach($datas as $select){
             $task_id = $select->task_id;
 
             //更新処理
             $completed = '';
-            $task_start_date = $select->task_start_date;
-            $task_start_time = $select->task_start_time;
-            $task_end_date = $select->task_end_date;
-            $task_end_time = $select->task_end_time;
+            $task_start_datetime = $select->task_start_datetime;
+            $task_end_datetime = $select->task_end_datetime;
 
-            //日付比較処理
+            //日付・時間処理
+            //タスク開始日付・時間
+            $task_start_datetime = Carbon::parse($task_start_datetime);
+            $task_start_date = $task_start_datetime->format("Y/m/d");
+            $task_start_datetime = $task_start_datetime->format('Y-m-d H:i:s');
+            //タスク終了日付・時間
+            $task_end_datetime = Carbon::parse($task_end_datetime);
+            $task_end_date = $task_end_datetime->format("Y/m/d");
+            $task_end_datetime = $task_end_datetime->format('Y-m-d H:i:s');
+            //今日の日付・時間
             $now = Carbon::now();
             $now_date = $now->format("Y/m/d");
-            $task_end_date = Carbon::parse($task_end_date);
-            $task_end_date = $task_end_date->format("Y/m/d");
-            //今日の日付・時間連結処理
-            $task_start = str($task_start_date).str($task_start_time);
-            $task_start = Carbon::parse($task_start);
-            $task_start = $task_start->format('Y-m-d H:i:s');
-            $task_end = str($task_end_date).str($task_end_time);
-            $task_end = Carbon::parse($task_end);
-            $task_end = $task_end->format('Y-m-d H:i:s');
-            $now = $now->format('Y-m-d H:i:s');
-            if($task_end<$now){
+            $now_datetime = $now->format('Y-m-d H:i:s');
+
+            //フラグ設定処理
+            if($task_end_datetime<$now_datetime){
                 $completed = "excess_incomplete";   
-            }elseif(($task_start<=$now_date)&&($task_end>=$now_date)){
+            }elseif(($task_start_date<=$now_date)&&($task_end_date>=$now_date)){
                 $completed = "today_incomplete";
             }else{
                 $completed = "future_incomplete";
             }
-            $param = [
-                'task_id' => $task_id,
+
+            //table更新処理
+            $update_param = [
                 'completed' => $completed,
             ];
-            DB::update('update user_taskmanage set completed = :completed where task_id = :task_id',$param);
+            DB::table('user_taskmanage')
+                ->where('task_id',$task_id)
+                ->update($update_param);
         }
+
+        //期限タスク更新処理
+        $datas = DB::table('user_taskmanage')
+                    ->select('task_id','task_end_datetime')
+                    ->where('user_id',$user_id)
+                    ->where('completed','deadline_incomplete')
+                    ->get();
+
+        if(!empty($datas)){
+            foreach($datas as $select){
+                $task_id = $select->task_id;
+    
+                //更新処理
+                $completed = '';
+                $task_end_datetime = $select->task_end_datetime;
+    
+                //日付・時間処理
+                //タスク終了日付・時間
+                $task_end_datetime = Carbon::parse($task_end_datetime);
+                $task_end_date = $task_end_datetime->format("Y/m/d");
+                $task_end_datetime = $task_end_datetime->format('Y-m-d H:i:s');
+                //今日の日付・時間
+                $now = Carbon::now();
+                $now_date = $now->format("Y/m/d");
+                $now_datetime = $now->format('Y-m-d H:i:s');
+    
+                //フラグ設定処理
+                if($task_end_datetime<$now_datetime){
+                    $completed = "excess_incomplete";   
+                }elseif(($task_end_date==$now_date)){
+                    $completed = "today_incomplete";
+                }else{
+                    $completed = "deadline_incomplete";
+                }
+
+                //table更新処理
+                $update_param = [
+                    'completed' => $completed,
+                ];
+                DB::table('user_taskmanage')
+                    ->where('task_id',$task_id)
+                    ->update($update_param);
+            }
+        }      
     }
 
-    //タスク日付一斉更新処理
-    public function date_excess_allupdate(){
-        $datas = DB::select('select task_id, task_date, task_time from user_taskmanage');
-        foreach($datas as $select){
-            $task_id = $select->task_id;
-            $task_date = $select->task_date;
-            $task_time = $select->task_time;
-            $task = str($task_date).str($task_time);
-            $task_date = Carbon::parse($task);
-            $task_date = $task_date->format('Y-m-d H:i:s');
-            $param = [
-                'task_date' => $task_date,
-                'task_id' => $task_id,
-            ];
-            DB::update('update user_taskmanage set completed = "excess_incomplete" where :task_date < now() and task_id = :task_id',$param);
-        }
+    //コロナ情報取得
+    public function covid19(){
+        // APIアクセスURL
+        $url = 'https://covid19-japan-web-api.now.sh/api/v1/prefectures';
+        // ストリームコンテキストのオプションを作成
+        $options = array(
+            // HTTPコンテキストオプションをセット
+            'http' => array(
+                'method'=> 'GET',
+                'header'=> 'Content-type: application/json; charset=UTF-8' //JSON形式で表示
+            )
+        );
+        // ストリームコンテキストの作成
+        $context = stream_context_create($options);
+        $raw_data = file_get_contents($url, false,$context);
+        $result = json_decode($raw_data, true);
+        $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
+        return $data;
     }
 }
 
