@@ -59,7 +59,7 @@ class TaskController extends Controller
          $messages = Task::$messages;
  
          //insertパラメータ取得
-         $insert_param = Task::$insert_param;
+         $insert_param = Task::$task_param;
 
         //タスクパラメータ削除処理
         if($task_start_datetime_status=='true'){
@@ -164,7 +164,7 @@ class TaskController extends Controller
         $messages = Task::$messages;
 
         //insertパラメータ取得
-        $insert_param = Task::$insert_param;
+        $insert_param = Task::$task_param;
 
         //追加タスク件数
         $insert_count = 1;
@@ -466,15 +466,24 @@ class TaskController extends Controller
     public function task_login_registration(Request $request){
         //セッション削除
         $request->session()->flush();
+
+        //変数
+        $user_admin;
+        $user_id;
+
+        //入力情報取得
+        $user_pass = $request->user_password;
+        $user_email = $request->user_email;
+
+        //バリデーション情報取得
+        $rules = User::$rules;
+        $messages = User::$messages;
+
+        //バリデーション情報編集
+        unset($rules['user_name']);
+        unset($messages['user_name.required']);
+
         //バリデーション処理
-        $rules = [
-            'email' => 'required',
-            'password' => 'required',
-        ];
-        $messages=[
-                'email.required' => 'メールアドレスは必ず入力してください。',
-                'password.required' => 'パスワードは必ず入力して下さい。',
-        ];
         $validator  = Validator::make($request->all(), $rules, $messages);
         if($validator->fails()){
             return redirect('/task')
@@ -483,14 +492,13 @@ class TaskController extends Controller
         }
 
         //ユーザ認証
-        $param=[
-            'user_email' => $request->email,
-            'user_password' => $request->password,
-        ];
-        $items = DB::select('select user_id, admin from user where user_email=:user_email and user_pass=:user_password',$param);
-        foreach($items as $user){
-            $user_id = $user->user_id;
-            $user_admin = $user->admin;
+        $items = User::select('user_id','admin')
+                        ->where('user_email',$user_email)
+                        ->where('user_pass',$user_pass)
+                        ->get();
+        foreach($items as $user_data){
+            $user_id = $user_data->user_id;
+            $user_admin = $user_data->admin;
         }
 
         //エラー処理
@@ -518,18 +526,22 @@ class TaskController extends Controller
 
     //新規会員登録(post)
     public function new_member_registration(Request $request){
+        //入力情報取得
+        $user_name = $request->user_name;
+        $user_pass = $request->user_password;
+        $user_email = $request->user_email;
+        $user_admin = $request->authority;
+
+        //変数
+        $user_id;
+        $get_user_id;
+        $insert_admin;
+
+        //バリデーション情報取得
+        $rules = User::$rules;
+        $messages = User::$messages;
+
         //バリデーション処理
-        $rules = [
-            'user_name' => 'required',
-            'user_password' => 'required',
-            'user_email' => 'required|email',
-        ];
-        $messages=[
-                'user_email.required' => 'メールアドレスは必ず入力してください。',
-                'user_email.email' => 'メールアドレスは適切な書式で入力してください。',
-                'user_password.required' => 'パスワードは必ず入力して下さい。',
-                'user_name.required' => 'ユーザ名は必ず入力して下さい。',
-        ];
         $validator  = Validator::make($request->all(), $rules, $messages);
         if($validator->fails()){
             return redirect('/login/insert')
@@ -537,39 +549,39 @@ class TaskController extends Controller
             ->withInput();
         }
         
-        //新規会員登録処理
-        $user_name = $request->user_name;
-        $user_password = $request->user_password;
-        $user_email = $request->user_email;
-        $admin = $request->authority;
-
-        $maxId = DB::table('user')
-            ->select('user_id')
-            ->orderBy('user_id','desc')
-            ->first();
+        $get_user_id = User::select('user_id')
+                                ->orderBy('user_id','desc')
+                                ->first()
+                                ->get();
             
-        if($maxId==null){
+        if($work_user_id==null){
             $user_id = 1;
         }else{
-            $user_id = $maxId->user_id+1;
+            $user_id = $get_user_id+1;
         }
 
         //権限設定
-        if($admin == 'user_authority'){
+        if($user_admin == 'user_authority'){
             $insert_admin = "user";
         }else{
             $insert_admin = "admin";
         }
-        $param = [
-            'user_id' => $user_id,
-            'user_name' => $request->user_name,
-            'user_password' => $request->user_password,
-            'user_email' => $request->user_email,
-            'admin' => $insert_admin,
-        ];
-        DB::insert('insert into user(user_id, user_name, user_pass, user_email, admin) values(:user_id, :user_name, :user_password, :user_email, :admin)',$param);
-        $alter_sql = 'alter table information_board add column '.str($request->user_name).'_flg boolean default false';
+
+        //insertパラメータ取得
+        $insert_param = Task::$users_param;
+
+        //insertパラメータセット
+        $insert_param['user_id']=$user_id;
+        $insert_param['user_name']=$user_name;
+        $insert_param['user_password']=$user_pass;
+        $insert_param['user_email']=$user_email;
+        $insert_param['admin']=$insert_admin;
+        User::insert($insert_param);
+
+        //ユーザ名フラグ追加
+        $alter_sql = 'alter table information_board add column '.str($user_name).'_flg boolean default false';
         DB::statement($alter_sql);
+
         $request->session()->flash('insert_message', 'ユーザを追加しました。');
         
         //ログイン画面に遷移
@@ -579,15 +591,18 @@ class TaskController extends Controller
     //csv出力
     public function task_csv(Request $request)
     {
+        //ユーザID取得
         $user_id = $request->session()->get('user_id');
+
         $counter = 1;
         $completed = '';
-        $param = [
-            "user_id" => $user_id,
-            "start_datetime" => '%Y年%m月%d日 %k時%i分',
-            "end_datetime" => '%Y年%m月%d日 %k時%i分',
-        ];
-        $items = DB::select('select task_id, task_name, task_detail, date_format(task_start_datetime,:start_datetime) as task_start_datetime, date_format(task_end_datetime,:end_datetime) as task_end_datetime, completed from user_taskmanage where user_id=:user_id',$param);
+
+        //タスクデータ取得
+        $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y-%m-%dT%k:%i") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y-%m-%dT%k:%i") as task_end_datetime'),'completed')
+                            ->where('user_id',$user_id)
+                            ->get();
+
+        //タスク配列作成
         $data = [];
         $data[] = ['タスク一覧'];
         $data[] = ['No', 'タスク名', 'タスク詳細', 'タスク日付', 'タスク時間','ステータス'];
@@ -604,6 +619,8 @@ class TaskController extends Controller
             $data[] = [$counter,$item->task_name,$item->task_detail,$item->task_start_datetime,$item->task_end_datetime,$completed];
             $counter += 1;
         }
+        
+        //csvファイル作成
         $save_file = storage_path('csv/task.csv');
         $file = new \SplFileObject($save_file, 'w'); // ファイルが無ければ作成
         $file->setCsvControl(",");                   // カンマ区切り
@@ -617,11 +634,17 @@ class TaskController extends Controller
 
     //タスク完了更新処理
     public function task_success_update(Request $request){
-        $param = [
-            'task_id' => $request->task_id,
+
+        //タスクID取得
+        $task_id = $request->task_id;
+
+        //タスク権限更新
+        $update_param = [
             'completed' => 'complete',
         ];
-        DB::update('update user_taskmanage set completed = :completed where task_id = :task_id ',$param);
+        Task::where('task_id')
+                ->update($update_param);
+
         $request->session()->flash('completed_message', 'タスクを完了済みに更新しました。');
         
         //タスク一覧画面に遷移

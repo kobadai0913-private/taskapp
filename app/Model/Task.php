@@ -32,7 +32,7 @@ class Task_Input extends Model
             'task_end_datetime.after_or_equal' => 'タスク終了日付にはタスク開始日付・時間以降の日付を入力して下さい。',
     ];
 
-    public static $insert_param=[
+    public static $task_param=[
         'user_id' => '',
         'task_id' => '',
         'task_name' => '',
