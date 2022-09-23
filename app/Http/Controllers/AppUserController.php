@@ -12,6 +12,8 @@ use Timestamp;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\TaskController;
 
+use App\Model\User;
+
 class AppUserController extends Controller
 {
     //管理者ログイン(get)
@@ -21,15 +23,20 @@ class AppUserController extends Controller
 
     //管理者ログイン(post)
     public function login_admin_registration(Request $request){
+        //入力情報取得
+        $user_pass = $request->password;
+        $user_email = $request->email;
+
+        //変数定義
+        $user_admin;
+        
+        //バリデーション情報取得
+        $rules = User::$rules;
+        $messages = User::$messages;
+        unset($rules['user_name']);
+        unset($messages['user_name.required']);
+
         //バリデーション処理
-        $rules = [
-            'email' => 'required',
-            'password' => 'required',
-        ];
-        $messages=[
-                'email.required' => 'メールアドレスは必ず入力してください。',
-                'password.required' => 'パスワードは必ず入力して下さい。',
-        ];
         $validator  = Validator::make($request->all(), $rules, $messages);
         if($validator->fails()){
             return redirect('/login/admin')
@@ -37,14 +44,11 @@ class AppUserController extends Controller
             ->withInput();
         }
 
-        //ユーザ認証
-        $user_admin = DB::table('user')
-                    ->select('admin')
-                    ->where('user_pass','=',$request->password)
-                    ->where('user_email','=',$request->email)
+        //ユーザ権限処理
+        $user_admin = User::select('admin')
+                    ->where('user_pass','=',$user_password)
+                    ->where('user_email','=',$user_email)
                     ->get();
-
-        //エラー処理
         if($user_admin == ''||($user_admin != 'admin')){
             $request->session()->flash('login_errors', '管理者アカウントではありません。管理者アカウントで再度ログインしてください。');
             return redirect('/login/admin');
@@ -56,57 +60,79 @@ class AppUserController extends Controller
 
     //ユーザ管理画面(get)
     public function user_admin_list(Request $request){
-        $request->session()->put('admin_flg',true);
-        $param = [
-            "admin" => "admin",
-        ];
-        $user = DB::select('select user_id, admin from user where admin = :admin',$param);
 
-        $items = DB::select('select user_id, user_pass, user_name, user_email, admin from user order by user_id');
+        //管理者権限フラグセット
+        $request->session()->put('admin_flg',true);
+
+        //変数定義
+        $user_datas;
+
+        //ユーザID、ユーザ権限取得
+        $user = User::select('user_id','admin')
+                        ->where('admin','admin')
+                        ->get();
+
+        $user_datas = User::select('user_id','user_pass','user_name','user_email','admin')
+                                ->orderby('user_id','asc')
+                                ->get();
+
+        //セッション情報登録
         $request->session()->put('user_id', $user[0]->user_id);
         $request->session()->put('admin', $user[0]->admin);
         
         //ユーザ一覧画面に遷移
-        return view('appusers.user_admin', ['userdata' => $items]);
+        return view('appusers.user_admin', ['userdata' => $user_datas]);
     }
 
     //ユーザ削除
     public function user_delete(Request $request){
-        $user_name  = DB::table('user')
-                        ->select('user_name')
-                        ->where('user_id','=',$request->user_id)
-                        ->get();
-        foreach($user_name as $name){
-            $user_name = $name->user_name;
-        }
+        //ユーザID取得
+        $user_id = $request->user_id;
+
+        //変数定義
+        $user_name;
+        $user_taskid;
+
+        //ユーザ名取得
+        $user_data = User::select('user_name')
+                            ->where('user_id',$user_id)
+                            ->get();
+        $user_name = $user_data[0]->user_name;
+
         //タスクがあるかチェック
-        $task_id  = DB::table('user_taskmanage')
-                        ->select('task_id')
-                        ->where('user_id','=',$request->user_id)
-                        ->first();
-        if($task_id!=''){
+        $user_taskid = Task::select('task_id')
+                                ->where('user_id','=',$user_id)
+                                ->first()
+                                ->get();
+        if($user_taskid!=''){
             $request->session()->flash('userdeleteerror_message', '当該ユーザのタスクが残っているため削除できませんでした。');
         }else{
-            $user_datas = DB::table('user')
-                            ->select('user_id')
-                            ->where('user_id','>',$request->user_id)
+            $user_datas = DB::select('user_id')
+                            ->where('user_id','>',$user_id)
                             ->orderby('user_id','asc')
-                            ->get();
-            $param = [
-                'user_id' => $request->user_id,
-            ];   
-            DB::delete('delete from user where user_id = :user_id',$param);
-            foreach($user_datas as $user_id){
-                $param = [
-                    'user_id' => $user_id->user_id,
-                    'user_id_count' => $user_id->user_id,
+                            ->get();  
+            
+            //ユーザデータ削除
+            User::where('user_id',$user_id)
+                    ->delete();
+            
+            foreach($user_datas as $user_data){
+                $get_userid = $user_data->user_id;
+
+                //ユーザID更新処理
+                $update_param = [
+                    'user_id' => ($get_userid-1),
                 ];
-                DB::update('update user set user_id = :user_id_count - 1 where user_id = :user_id ',$param);
+                User::where('user_id',$get_userid)
+                        ->update($update_param);
             }
+
+            //ユーザカラム削除処理
             $alter_sql = 'alter table information_board drop column '.str($user_name).'_flg';
             DB::statement($alter_sql);
             DB::rollback();
             DB::commit();
+
             $request->session()->flash('delete_message', 'ユーザを削除しました。');
         }
         
@@ -116,50 +142,65 @@ class AppUserController extends Controller
 
     //ユーザ修正(get)
     public function user_fix(Request $request){
-        $param = [
-            'user_id' => $request->user_id,
-        ];
-        $items = DB::select('select user_id, user_name, user_pass, user_email, admin from user where user_id = :user_id',$param);
-        
+
+        //ユーザID取得
+        $user_id = $request->user_id;
+
+        //ユーザ情報取得
+        $items = User::select('user_id','user_name','user_pass','user_email','admin')
+                            ->where('user_id',$user_id)
+                            ->get();
+
         //タスク修正画面に遷移
         return view('appusers.user_fix',['users'=>$items, 'user_id'=>$request->user_id]);
     }
 
     //ユーザ修正(post)
     public function user_fix_registration(Request $request){
-        //バリデーション処理
-        $rules = [
-            'user_name' => 'required',
-            'user_pass' => 'required',
-            'user_email' => 'required|email',
-            'admin' => 'required',
-        ];
-        $messages=[
-                'user_email.required' => 'メールアドレスは必ず入力してください。',
-                'user_email.email' => 'メールアドレスは適切な書式で入力してください。',
-                'user_pass.required' => 'パスワードは必ず入力して下さい。',
-                'user_name.required' => 'ユーザ名は必ず入力して下さい。',
-                'admin.required' => '権限は必ず設定して下さい。',
-        ];
+        //入力情報取得
+        $user_id = $request->user_id;
+        $user_name = $request->user_name;
+        $user_pass = $request->user_pass;
+        $user_email = $request->user_email;
+        $user_admin = $request->authority;
 
-        //エラー処理
+        //ユーザID取得
+        $user_id = $request->user_id;
+
+        //変数
+        $insert_admin;
+        
+        //バリデーション情報取得
+        $rules = User::$rules;
+        $messages = User::$messages;
+
+        //バリデーション処理
         $request->session()->flash('user_errors', '入力項目に問題があります。');
         $validator  = Validator::make($request->all(), $rules, $messages);
         if($validator->fails()){
-            return redirect('user/fix/'.$request->user_id)
+            return redirect('user/fix/'.$user_id)
             ->withErrors($validator)
             ->withInput();
         }
 
-        //更新処理
-        $param = [
-            'user_id' => $request->user_id,
-            'user_name' => $request->user_name,
-            'user_pass' => $request->user_pass,
-            'user_email' => $request->user_email,
-            'admin' => $request->admin,
-        ];
-        DB::update('update user set user_name = :user_name, user_pass = :user_pass, user_email = :user_email, admin = :admin where user_id = :user_id',$param);
+        //権限設定
+        if($user_admin == 'user_authority'){
+            $insert_admin = "user";
+        }else{
+            $insert_admin = "admin";
+        }
+
+        //insertパラメータ取得
+        $insert_param = User::$users_param;
+
+        //insertパラメータセット
+        $insert_param['user_id']=$user_id;
+        $insert_param['user_name']=$user_name;
+        $insert_param['user_password']=$user_pass;
+        $insert_param['user_email']=$user_email;
+        $insert_param['admin']=$insert_admin;
+        User::insert($insert_param);
+
         $request->session()->flash('update_message', 'ユーザを更新しました');
         
         //ユーザ一覧に画面遷移する
@@ -168,16 +209,11 @@ class AppUserController extends Controller
 
     //管理者ユーザログイン(get)
     public function user_login(Request $request){
+
+        //ユーザID取得
         $user_id = $request->user_id;
 
-        $param=[
-            'user_id' => $user_id,
-        ];
-        $items = DB::select('select user_id, admin from user where user_id = :user_id',$param);
-
-        foreach($items as $it){
-            $user_id = $it->user_id;
-        }
+        //セッション情報登録
         $request->session()->put('user_id', $user_id);
 
         //タスク一覧画面遷移

@@ -492,14 +492,12 @@ class TaskController extends Controller
         }
 
         //ユーザ認証
-        $items = User::select('user_id','admin')
+        $user = User::select('user_id','admin')
                         ->where('user_email',$user_email)
                         ->where('user_pass',$user_pass)
                         ->get();
-        foreach($items as $user_data){
-            $user_id = $user_data->user_id;
-            $user_admin = $user_data->admin;
-        }
+        $user_id = $user[0]->user_id;
+        $user_admin = $user[0]->admin;
 
         //エラー処理
         if(empty($items)){
@@ -568,7 +566,7 @@ class TaskController extends Controller
         }
 
         //insertパラメータ取得
-        $insert_param = Task::$users_param;
+        $insert_param = User::$users_param;
 
         //insertパラメータセット
         $insert_param['user_id']=$user_id;
@@ -594,6 +592,7 @@ class TaskController extends Controller
         //ユーザID取得
         $user_id = $request->session()->get('user_id');
 
+        //定数定義
         $counter = 1;
         $completed = '';
 
@@ -653,19 +652,31 @@ class TaskController extends Controller
 
     //タスク完了取消処理
     public function task_success_denger(Request $request){
-        $param = [
-            'task_id' => $request->task_id,
-        ];
-        $datas = DB::select('select task_start_datetime, task_end_datetime from user_taskmanage where task_id = :task_id',$param);
-        foreach($datas as $task){
-            $task_start_datetime = $task->task_start_datetime;
-            $task_end_datetime = $task->task_end_datetime;
-        }
+
+        //タスクID取得
+        $task_id = $request->task_id;
+
+        //変数定義
+        $task_data;
+        $task_start_datetime;
+        $task_start_date;
+        $task_end_datetime;
+        $task_end_date;
+        $now_datetime;
+        $now_date;
+        $now;
+
+        //初期値設定
+        $comoleted = '';
+
+        //タスク開始日付・終了日付取得
+        $task_data = Task::select('task_start_datetime','task_end_datetime')
+                ->where('task_id',$task_id)
+                ->get();
+        $task_start_datetime = $task_data[0]->task_start_datetime;
+        $task_end_datetime = $task_data[0]->task_end_datetime;
          
         if($task_start_datetime == null){
-            //更新処理
-            $completed = '';
-
             //日付・時間処理
             //タスク終了日付・時間
             $task_end_datetime = Carbon::parse($task_end_datetime);
@@ -685,9 +696,6 @@ class TaskController extends Controller
                 $completed = "deadline_incomplete";
             }
         }else{
-            //更新処理
-            $completed = '';
-
             //日付・時間処理
             //タスク開始日付・時間
             $task_start_datetime = Carbon::parse($task_start_datetime);
@@ -711,32 +719,46 @@ class TaskController extends Controller
                 $completed = "future_incomplete";
             }
         }
-        $param = [
-            'task_id' => $request->task_id,
+
+        //タスクフラグ更新処理
+        $update_param = [
             'completed' => $completed,
         ];
-        DB::update('update user_taskmanage set completed = :completed where task_id = :task_id ',$param);
+        Task::where('task_id',$task_id)
+                ->update($update_param);
+
         $request->session()->flash('incomplete_message', 'タスクの完了を取り消しました');
         
         //タスク一覧画面に遷移
-        return redirect('/task/detail/'.$request->task_id);
+        return redirect('/task/detail/'.$task_id);
     }
 
     //タスク日付更新処理(user)
     public function usertask_date_update($user_id){
 
-        //通常タスク更新処理
-        $param = [
-            'user_id' => $user_id,
-            'completed' => 'complete',
-            'deadline_completed' => 'deadline_incomplete',
-        ];
-        $datas = DB::select('select task_id, task_start_datetime, task_end_datetime from user_taskmanage where user_id = :user_id and completed != :completed and completed != :deadline_completed',$param);
-        foreach($datas as $select){
-            $task_id = $select->task_id;
+        //初期値設定
+        $completed = '';
+
+        //変数定義
+        $task_start_datetime;
+        $task_start_date;
+        $task_end_datetime;
+        $task_end_date;
+        $now_datetime;
+        $now_date;
+        $now;
+
+        //通常タスク取得
+        $task_datas = Task::select('task_id','task_start_datetime','task_end_datetime')
+                        ->where('completed','complete')
+                        ->where('deadline_completed','deadline_complete')
+                        ->where('user_id',$user_id)
+                        ->get();
+
+        foreach($task_datas as $task_data){
+            $task_id = $task_data->task_id;
 
             //更新処理
-            $completed = '';
             $task_start_datetime = $select->task_start_datetime;
             $task_end_datetime = $select->task_end_datetime;
 
@@ -763,28 +785,25 @@ class TaskController extends Controller
                 $completed = "future_incomplete";
             }
 
-            //table更新処理
+            //タスク権限更新処理
             $update_param = [
                 'completed' => $completed,
             ];
-            DB::table('user_taskmanage')
-                ->where('task_id',$task_id)
-                ->update($update_param);
+            Task::where('task_id',$task_id)
+                ->update($update_param); 
         }
 
         //期限タスク更新処理
-        $datas = DB::table('user_taskmanage')
-                    ->select('task_id','task_end_datetime')
-                    ->where('user_id',$user_id)
-                    ->where('completed','deadline_incomplete')
-                    ->get();
+        $task_datas = Task::select('task_id','task_end_datetime')   
+                            ->where('user_id',$user_id) 
+                            ->where('completed','deadline_incomplete')
+                            ->get();
 
-        if(!empty($datas)){
-            foreach($datas as $select){
-                $task_id = $select->task_id;
+        if(!empty($task_datas)){
+            foreach($task_datas as $task_data){
+                $task_id = $task_data->task_id;
     
                 //更新処理
-                $completed = '';
                 $task_end_datetime = $select->task_end_datetime;
     
                 //日付・時間処理
@@ -806,12 +825,11 @@ class TaskController extends Controller
                     $completed = "deadline_incomplete";
                 }
 
-                //table更新処理
+                //タスクフラグ更新処理
                 $update_param = [
                     'completed' => $completed,
                 ];
-                DB::table('user_taskmanage')
-                    ->where('task_id',$task_id)
+                Task::where('task_id',$task_id)
                     ->update($update_param);
             }
         }      

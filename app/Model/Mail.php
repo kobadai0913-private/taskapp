@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Providers;
 
-class User extends Model
+class Mail extends Model
 {
     use HasFactory;
 
@@ -16,10 +16,14 @@ class User extends Model
 
     public $timestamps = false;
 
-    public static $rules = [
-        'user_name' => 'required',
-        'user_pass' => 'required',
-        'user_email' => 'required|email',
+    public static $information_param = [
+        "user_id" => '',
+        "start_day" => 'YYYY年MM月DD日',
+        "start_time" => 'HH24時MI分',
+        "end_day" => 'YYYY年MM月DD日',
+        "end_time" => 'HH24時MI分',
+        'completed' => 'today_incomplete',
+        'completedf' => 'excess_incomplete',
     ];
 
     public static $messages=[

@@ -8,29 +8,39 @@ use Illuminate\Http\Request;
 use Mail;
 use App\Mail\SendMail;
 
+use App\Model\Task;
+use App\Model\User;
+use App\Model\Information;
+
 class MailSendController extends Controller
 {
 	public function postPurchaseComplete(Request $request){
+
+		//ユーザID取得
 		$user_id = $request->session()->get('user_id');
+
+		//変数定義
 		$items = [];
 		$today_task=array();
 		$old_task=array();
 		$today_count = 1;
 		$old_count = 1;
+		$today;
+		$user_name;
+
 		//今日の日付取得
 		$today = date("Y年m月d日");
 		//ユーザ情報取得
-		$userparam = [
-            "user_id" => $user_id,
-        ];
-		$userdata = DB::select('select user_name, user_email, admin from user where user_id=:user_id',$userparam);
-		$admin= $userdata[0]->admin;
+		$user_data = User::select('user_name','user_email','admin')
+							->where('user_id',$user_id)
+							->get();
+		$admin= $user_data[0]->admin;
+		$mail_to = $user_data[0]->user_email;
+		$user_name = $user_data[0]->user_name;
 		if($admin == "admin"){
 			$user_name = 'タスク管理アプリ管理者';
-		}else{
-			$user_name = $userdata[0]->user_name;
 		}
-		$mail_to = $userdata[0]->user_email;
+
 		//admin処理・user処理
 		if($admin == 'admin'){
 			//今日のタスク取得
@@ -57,7 +67,6 @@ class MailSendController extends Controller
 					$old_count += 1;
 				}
 			}
-
 		}else{
 			$param = [
 				"user_id" => $user_id,
