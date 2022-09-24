@@ -22,7 +22,7 @@ class TaskController extends Controller
         $task_id = $request->task_id;
 
         //タスクデータ取得
-        $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y-%m-%dT%k:%i") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y-%m-%dT%k:%i") as task_end_datetime'),'completed')
+        $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y-%m-%dT%H:%i") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y-%m-%dT%H:%i") as task_end_datetime'),'completed')
                             ->where('task_id',$task_id)
                             ->get();
 
@@ -187,9 +187,10 @@ class TaskController extends Controller
         if($task_end_datetime_counter!=''){
             for($i=0; $i<$task_end_datetime_counter; $i++){
                 $work_column = "task_end_datetime".($i+1);
-                $rules = $rules+[$work_column => 'required|after_or_equal:task_start_datetime'.($i+1)];
+                $rules = $rules+[$work_column => 'required|after_or_equal:task_start_datetime'.($i+1).'|task_datetime'];
                 $messages = $messages+[$work_column.'.required' => 'タスク開始日付・時間は必ず入力して下さい。'];
                 $messages = $messages+[$work_column.'.after_or_equal' => 'タスク終了日付にはタスク開始日付・時間以降の日付を入力して下さい。'];
+                $messages = $messages+[$work_column.'.task_datetime' => 'タスク終了日付には過去の日付を登録することはできません。'];
                 $request->session()->put('task_end_datetime_counter',$task_end_datetime_counter);
             }
         }
@@ -376,21 +377,13 @@ class TaskController extends Controller
         }
 
         //権限付与
-        $request->session()->put('admin',$user_admin);
+        $request->session()->put('admin',$user_id,$user_admin);
 
         //タスク権限更新処理
         self::usertask_date_update($user_id);
 
         //タスクデータ取得
-        if($user_admin == "admin"){
-            $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
-                            ->orderby('user_id','asc')
-                            ->get();
-        }else{
-            $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
-                            ->where('user_id',$user_id)
-                            ->get();
-        }
+        $items = self::task_createlist($request,$user_id,$user_admin);
 
         //インフォメーション情報取得
         $information_datas = Information::select('information_id','information_name','information_detail','information_date',str($user_name).'_flg')
@@ -405,6 +398,291 @@ class TaskController extends Controller
 
         //タスク一覧画面に遷移
         return view('task.taskapp_top',['tasks'=>$items, 'api'=>$covid_data, 'date'=>$now_date, 'informations'=>$information_datas, 'user_name'=>$user_name]);
+    }
+
+    //タスクデータ取得
+    public function task_createlist(Request $request,$user_id,$user_admin){
+        
+        //絞り込み検索処理
+        //checkbox内容取得
+        //タスクステータス
+        $task_status_excess = $request->task_status_excess;
+        $task_status_complete = $request->task_status_complete;
+        //タスク日付
+        //フラグ内容
+        $task_date_findflg = $request->task_date_findflg;
+        $task_time_findflg = $request->task_time_findflg;
+        $task_today_flg = $request->task_today_flg;
+        //入力内容
+        $task_find_date = $request->task_find_date;
+        $task_find_time = $request->task_find_time;
+        //タスク名
+        //フラグ内容
+        $task_name_findflg = $request->task_name_findflg;
+        //入力内容
+        $task_find_name = $request->task_find_name;
+
+        //変数定義
+        $task_status_flg = false;
+        $task_date_flg = false;
+        $task_name_flg = false;
+        $task_find_flg = false;
+        $now_date;
+        $now;
+        $task_get_items = [];
+        $task_total_items = array();
+        $task_datetotal_items = array();
+        $task_date_items = array();
+        $task_work_items = [];
+        $task_insert_items = [];
+        $dis_count = 0;
+        $dis_date_count = 0;
+
+
+        if($task_status_excess == 'true' || $task_status_complete == 'true'){
+            $task_status_flg = true;
+        }
+
+        if($task_date_findflg == 'true' || $task_time_findflg == 'true' || $task_today_flg == 'true'){
+            $task_date_flg = true;
+        }
+
+        if($task_name_findflg == 'true'){
+            $task_name_flg = true;
+        }
+
+        if($task_status_flg == 'true' || $task_date_flg == 'true' || $task_name_flg == 'true'){
+            $task_find_flg = true;
+        }
+
+        //日付
+        //検索日付取得
+        $task_find_date = Carbon::parse($task_find_date);
+        $task_find_date = $task_find_date->format("Y/m/d");
+        //今日の日付・時間
+        $now = Carbon::now();
+        $now_date = $now->format("Y/m/d");
+        if($task_find_flg == true){
+            if($user_admin == "admin"){
+                if($task_status_flg == true){
+                    if($task_status_excess == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('completed','excess_incomplete')
+                                                    ->orderby('user_id','asc')
+                                                    ->get()
+                                                    ->all();
+                        $task_total_items = array_merge($task_total_items,$task_get_items);
+                    }
+                    if($task_status_complete == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('completed','complete')
+                                                    ->orderby('user_id','asc')
+                                                    ->get()
+                                                    ->all();
+                        $task_total_items = array_merge($task_total_items,$task_get_items);
+                    }
+                    $dis_count += 1;
+                }
+                if($task_date_flg == true){
+                    if($task_today_flg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where(Task::raw('date_format(task_start_datetime,"%Y/%m/%d")'),$now_date)
+                                                    ->orwhere(Task::raw('date_format(task_end_datetime,"%Y/%m/%d")'),$now_date)
+                                                    ->orderby('user_id','asc')
+                                                    ->get()
+                                                    ->all();
+                        $task_datetotal_items = array_merge($task_datetotal_items,$task_get_items);
+                        $dis_date_count += 1;
+                    }
+                    if($task_date_findflg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where(Task::raw('date_format(task_start_datetime,"%Y/%m/%d")'),$task_find_date)
+                                                    ->orwhere(Task::raw('date_format(task_end_datetime,"%Y/%m/%d")'),$task_find_date)
+                                                    ->orderby('user_id','asc')
+                                                    ->get()
+                                                    ->all();
+                        $task_datetotal_items = array_merge($task_datetotal_items,$task_get_items);
+                        $dis_date_count += 1;
+                    }
+                    if($task_time_findflg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where(Task::raw('date_format(task_start_datetime,"%H:%i")'),$task_find_time)
+                                                    ->orwhere(Task::raw('date_format(task_end_datetime,"%H:%i")'),$task_find_time)
+                                                    ->orderby('user_id','asc')
+                                                    ->get()
+                                                    ->all();
+                        log::info(collect($task_get_items));
+                        $task_datetotal_items = array_merge($task_datetotal_items,$task_get_items);
+                        $dis_date_count += 1;
+                    }
+                    if($dis_date_count != 1){
+                        for($i=0; count($task_datetotal_items)>$i; $i++){
+                            $dis_date_count = 0;
+                            for($j=0; count($task_datetotal_items)>$j; $j++){
+                                if($task_datetotal_items[$i]==$task_datetotal_items[$j]){
+                                    $dis_date_count += 1;
+                                }
+                                if($dis_date_count == 2){
+                                    $task_insert_items[] = $task_datetotal_items[$i];
+                                    $task_date_items = array_merge($task_date_items,$task_insert_items);
+                                }
+                            }
+                        }
+                        $task_date_items = array_unique($task_date_items);
+                        $task_total_items = array_merge($task_total_items,$task_date_items);
+                    }else{
+                        $task_total_items = array_merge($task_total_items,$task_datetotal_items);
+                    }
+                    $dis_count += 1;
+                }
+                if($task_name_flg == true){
+                    if($task_name_flg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('user_id',$user_id)
+                                                    ->where('task_name','like','%'.$task_find_name.'%')
+                                                    ->get()
+                                                    ->all();
+                        $task_total_items = array_merge($task_total_items,$task_get_items);
+                    }
+                    $dis_count += 1;
+                }
+                if($dis_count != 1){
+                    for($i=0; count($task_total_items)>$i; $i++){
+                        $dis_count = 0;
+                        for($j=0; count($task_total_items)>$j; $j++){
+                            if($task_total_items[$i]==$task_total_items[$j]){
+                                $dis_count += 1;
+                            }
+                            if($dis_count == 2){
+                                $task_insert_items[] = $task_total_items[$i];
+                                $task_work_items = array_merge($task_work_items,$task_insert_items);
+                            }
+                        }
+                    }
+                    $task_work_items = array_unique($task_work_items);
+                    $task_total_items = $task_work_items;
+                }
+                $items = collect($task_total_items);
+            }else{
+                if($task_status_flg == true){
+                    if($task_status_excess == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('user_id',$user_id)
+                                                    ->where('completed','excess_incomplete')
+                                                    ->get()
+                                                    ->all();
+                        $task_total_items = array_merge($task_total_items,$task_get_items);
+                    }
+                    if($task_status_complete == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('user_id',$user_id)
+                                                    ->where('completed','complete')
+                                                    ->get()
+                                                    ->all();
+                        $task_total_items = array_merge($task_total_items,$task_get_items);
+                    }
+                    $dis_count += 1;
+                }
+                if($task_date_flg == true){
+                    if($task_today_flg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('user_id',$user_id)
+                                                    ->where(Task::raw('date_format(task_start_datetime,"%Y/%m/%d")'),$now_date)
+                                                    ->orwhere(Task::raw('date_format(task_end_datetime,"%Y/%m/%d")'),$now_date)
+                                                    ->get()
+                                                    ->all();
+                        $task_datetotal_items = array_merge($task_datetotal_items,$task_get_items);
+                        $dis_date_count += 1;
+                    }
+                    if($task_date_findflg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('user_id',$user_id)
+                                                    ->where(Task::raw('date_format(task_start_datetime,"%Y/%m/%d")'),$task_find_date)
+                                                    ->orwhere(Task::raw('date_format(task_end_datetime,"%Y/%m/%d")'),$task_find_date)
+                                                    ->get()
+                                                    ->all();
+                        $task_datetotal_items = array_merge($task_datetotal_items,$task_get_items);
+                        $dis_date_count += 1;
+                    }
+                    if($task_time_findflg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('user_id',$user_id)
+                                                    ->where(Task::raw('date_format(task_start_datetime,"%H:%i")'),$task_find_time)
+                                                    ->orwhere(Task::raw('date_format(task_end_datetime,"%H:%i")'),$task_find_time)
+                                                    ->get()
+                                                    ->all();
+                        log::info(collect($task_get_items));
+                        $task_datetotal_items = array_merge($task_datetotal_items,$task_get_items);
+                        $dis_date_count += 1;
+                    }
+                    if($dis_date_count != 1){
+                        for($i=0; count($task_datetotal_items)>$i; $i++){
+                            $dis_date_count = 0;
+                            for($j=0; count($task_datetotal_items)>$j; $j++){
+                                if($task_datetotal_items[$i]==$task_datetotal_items[$j]){
+                                    $dis_date_count += 1;
+                                }
+                                if($dis_date_count == 2){
+                                    $task_insert_items[] = $task_datetotal_items[$i];
+                                    $task_date_items = array_merge($task_date_items,$task_insert_items);
+                                }
+                            }
+                        }
+                        $task_date_items = array_unique($task_date_items);
+                        $task_total_items = array_merge($task_total_items,$task_date_items);
+                    }else{
+                        $task_total_items = array_merge($task_total_items,$task_datetotal_items);
+                    }
+                    $dis_count += 1;
+                }
+                if($task_name_flg == true){
+                    if($task_name_flg == true){
+                        $task_get_items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                                    ->where('user_id',$user_id)
+                                                    ->where('task_name','like','%'.$task_find_name.'%')
+                                                    ->get()
+                                                    ->all();
+                        $task_total_items = array_merge($task_total_items,$task_get_items);
+                    }
+                    $dis_count += 1;
+                }
+                if($dis_count != 1){
+                    for($i=0; count($task_total_items)>$i; $i++){
+                        $dis_count = 0;
+                        for($j=0; count($task_total_items)>$j; $j++){
+                            if($task_total_items[$i]==$task_total_items[$j]){
+                                $dis_count += 1;
+                            }
+                            if($dis_count == 2){
+                                $task_insert_items[] = $task_total_items[$i];
+                                $task_work_items = array_merge($task_work_items,$task_insert_items);
+                            }
+                        }
+                    }
+                    $task_work_items = array_unique($task_work_items);
+                    $task_total_items = $task_work_items;
+                }
+                $items = collect($task_total_items);
+            }
+        }else{
+            if($user_admin == "admin"){
+                $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                ->orderby('user_id','asc')
+                                ->get();
+            }else{
+                $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
+                                ->where('user_id',$user_id)
+                                ->get();
+            }
+        }
+        return $items;
+    }
+
+    //タスク検索
+    public function task_find(Request $request){
+
+        //タスク一覧画面遷移
+        return self::taskapp_list($request);
     }
 
     //タスク詳細(get)
@@ -472,7 +750,7 @@ class TaskController extends Controller
         $user_id;
 
         //入力情報取得
-        $user_pass = $request->user_password;
+        $user_pass = $request->user_pass;
         $user_email = $request->user_email;
 
         //バリデーション情報取得
@@ -495,18 +773,19 @@ class TaskController extends Controller
         $user = User::select('user_id','admin')
                         ->where('user_email',$user_email)
                         ->where('user_pass',$user_pass)
-                        ->get();
-        $user_id = $user[0]->user_id;
-        $user_admin = $user[0]->admin;
-
+                        ->first();
         //エラー処理
-        if(empty($items)){
+        if(empty($user)){
             $request->session()->flash('login_errors', '入力項目に問題があります。');
             return redirect('/task');
-        }elseif($user_admin == "admin"){
+        }elseif($user->admin == "admin"){
             $request->session()->flash('login_errors', 'こちらでは管理者ログインを行うことができません。');
             return redirect('/task');
         }
+
+        //ユーザ情報取得
+        $user_id = $user->user_id;
+        $user_admin = $user->admin;
 
         //セッション登録
         $request->session()->put('user_id', $user_id);
@@ -526,7 +805,7 @@ class TaskController extends Controller
     public function new_member_registration(Request $request){
         //入力情報取得
         $user_name = $request->user_name;
-        $user_pass = $request->user_password;
+        $user_pass = $request->user_pass;
         $user_email = $request->user_email;
         $user_admin = $request->authority;
 
@@ -547,15 +826,13 @@ class TaskController extends Controller
             ->withInput();
         }
         
-        $get_user_id = User::select('user_id')
+        $get_user_data = User::select('user_id')
                                 ->orderBy('user_id','desc')
-                                ->first()
-                                ->get();
-            
-        if($work_user_id==null){
+                                ->first();  
+        if($get_user_data==null){
             $user_id = 1;
         }else{
-            $user_id = $get_user_id+1;
+            $user_id = $get_user_data->user_id+1;
         }
 
         //権限設定
@@ -566,12 +843,12 @@ class TaskController extends Controller
         }
 
         //insertパラメータ取得
-        $insert_param = User::$users_param;
+        $insert_param = User::$user_param;
 
         //insertパラメータセット
         $insert_param['user_id']=$user_id;
         $insert_param['user_name']=$user_name;
-        $insert_param['user_password']=$user_pass;
+        $insert_param['user_pass']=$user_pass;
         $insert_param['user_email']=$user_email;
         $insert_param['admin']=$insert_admin;
         User::insert($insert_param);
@@ -641,7 +918,7 @@ class TaskController extends Controller
         $update_param = [
             'completed' => 'complete',
         ];
-        Task::where('task_id')
+        Task::where('task_id',$task_id)
                 ->update($update_param);
 
         $request->session()->flash('completed_message', 'タスクを完了済みに更新しました。');
@@ -750,8 +1027,8 @@ class TaskController extends Controller
 
         //通常タスク取得
         $task_datas = Task::select('task_id','task_start_datetime','task_end_datetime')
-                        ->where('completed','complete')
-                        ->where('deadline_completed','deadline_complete')
+                        ->where('completed','!=','complete')
+                        ->where('completed','!=','deadline_incomplete')
                         ->where('user_id',$user_id)
                         ->get();
 
@@ -759,8 +1036,8 @@ class TaskController extends Controller
             $task_id = $task_data->task_id;
 
             //更新処理
-            $task_start_datetime = $select->task_start_datetime;
-            $task_end_datetime = $select->task_end_datetime;
+            $task_start_datetime = $task_data->task_start_datetime;
+            $task_end_datetime = $task_data->task_end_datetime;
 
             //日付・時間処理
             //タスク開始日付・時間
@@ -804,7 +1081,7 @@ class TaskController extends Controller
                 $task_id = $task_data->task_id;
     
                 //更新処理
-                $task_end_datetime = $select->task_end_datetime;
+                $task_end_datetime = $task_data->task_end_datetime;
     
                 //日付・時間処理
                 //タスク終了日付・時間

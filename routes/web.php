@@ -135,6 +135,7 @@ use Illuminate\Support\Facades\Route;
 
 //タスク一覧画面
 Route::get('task/app', 'App\Http\Controllers\TaskController@taskapp_list');
+Route::post('task/app', 'App\Http\Controllers\TaskController@taskapp_list');
 
 //タスク追加画面
 Route::get('task/add', 'App\Http\Controllers\TaskController@task_insert');
@@ -209,3 +210,5 @@ Route::get('information/delete/{information_id?}', 'App\Http\Controllers\Informa
 //インフォメーション詳細
 Route::get('information/detail/{information_id?}', 'App\Http\Controllers\InformationController@information_detail');
 
+//task絞り込み検索
+Route::post('task/find', 'App\Http\Controllers\TaskController@task_find');

@@ -32,7 +32,7 @@ class User extends Model
     public static $user_param = [
         'user_id' => '',
         'user_name' => '',
-        'user_password' => '',
+        'user_pass' => '',
         'user_email' => '',
         'admin' => '',
     ];

@@ -34,7 +34,7 @@ class InformationController extends Controller
         $information_date = $request->information_date;
 
         //変数定義
-        $work_max_id;
+        $information_datas;
         $information_id;
 
         //バリデーション処理
@@ -46,14 +46,16 @@ class InformationController extends Controller
             ->withInput();
         }
 
-        $work_max_id = Information::select('information_id')
+        $information_datas = Information::select('information_id')
                                     ->orderby('information_id','desc')
-                                    ->first()
-                                    ->get();
-        if($work_max_id==null){
+                                    ->first();
+        if($information_datas==null){
             $information_id = 1;
         }else{
-            $information_id = $work_max_id[0]->information_id+1;
+            foreach($information_datas as $infotmarion_data){
+                $information_id = $information_data->information_id;
+            }
+            $information_id = $information_id+1;
         }
 
         //insertパラメータ取得
@@ -66,7 +68,7 @@ class InformationController extends Controller
         $insert_param['information_date']=$information_date;
 
         //パラメータinsert処理
-        Information::insert($information_param);
+        Information::insert($insert_param);
 
         $request->session()->flash('informationinsert_message', 'インフォメーションを追加しました。');
         
@@ -76,6 +78,9 @@ class InformationController extends Controller
 
     //インフォメーション修正(get)
     public function information_fix(Request $request){
+
+        //インフォメーションID取得
+        $information_id = $request->information_id;
 
         //インフォメーション情報取得
         $items = Information::select('information_id','information_detail','information_date','information_name')
@@ -112,13 +117,14 @@ class InformationController extends Controller
         $update_param = Information::$information_param;
 
         //パラメータセット
-        $update_param['information_id']=$information_id;
+        unset($update_param['information_id']);
         $update_param['information_name']=$information_name;
         $update_param['information_date']=$information_date;
         $update_param['information_detail']=$information_detail;
 
         //インフォメーション情報更新
-        Information::update($update_param);
+        Information::where('information_id',$information_id)
+                        ->update($update_param);
 
         $request->session()->flash('informationupdate_message', 'インフォメーションを更新しました');
         
@@ -134,7 +140,7 @@ class InformationController extends Controller
 
         //指定したタスクID以上のタスクIDを昇順抽出
         $information_datas = Information::select('information_id')
-                                            ->where('information','>',$information_id)
+                                            ->where('information_id','>',$information_id)
                                             ->get();
         
         //インフォメーション情報削除
@@ -161,6 +167,9 @@ class InformationController extends Controller
 
         //ログインユーザID取得
         $login_user = $request->session()->get('user_id');
+
+        //インフォメーションID取得
+        $information_id = $request->information_id;
 
         //変数定義
         $user_name;

@@ -15,9 +15,6 @@
         <li class="nav-item ml-2">
           <a class="nav-link text-white" id="register" href="/task/">ログアウト</a>
         </li>
-        <li class="nav-item ml-2">
-          <a class="nav-link text-white" id="register" href="/mail/{{session('user_id')}}">メール通知</a>
-        </li>
       </ul>
     </div>
   </nav>

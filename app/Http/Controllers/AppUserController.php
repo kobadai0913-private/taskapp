@@ -24,8 +24,8 @@ class AppUserController extends Controller
     //管理者ログイン(post)
     public function login_admin_registration(Request $request){
         //入力情報取得
-        $user_pass = $request->password;
-        $user_email = $request->email;
+        $user_pass = $request->user_pass;
+        $user_email = $request->user_email;
 
         //変数定義
         $user_admin;
@@ -46,13 +46,16 @@ class AppUserController extends Controller
 
         //ユーザ権限処理
         $user_admin = User::select('admin')
-                    ->where('user_pass','=',$user_password)
+                    ->where('user_pass','=',$user_pass)
                     ->where('user_email','=',$user_email)
-                    ->get();
-        if($user_admin == ''||($user_admin != 'admin')){
+                    ->first();
+        if($user_admin == null||($user_admin->admin != 'admin')){
             $request->session()->flash('login_errors', '管理者アカウントではありません。管理者アカウントで再度ログインしてください。');
             return redirect('/login/admin');
         }
+
+        //ユーザ権限取得
+        $user_admin = $user_admin->admin;
         
          //ユーザ一覧画面遷移
          return self::user_admin_list($request);
@@ -162,6 +165,8 @@ class AppUserController extends Controller
         $user_name = $request->user_name;
         $user_pass = $request->user_pass;
         $user_email = $request->user_email;
+
+        //追加部分
         $user_admin = $request->authority;
 
         //ユーザID取得
@@ -183,6 +188,7 @@ class AppUserController extends Controller
             ->withInput();
         }
 
+        //追加部分
         //権限設定
         if($user_admin == 'user_authority'){
             $insert_admin = "user";
@@ -190,16 +196,19 @@ class AppUserController extends Controller
             $insert_admin = "admin";
         }
 
-        //insertパラメータ取得
-        $insert_param = User::$users_param;
+        //updateパラメータ取得
+        $update_param = User::$user_param;
 
-        //insertパラメータセット
-        $insert_param['user_id']=$user_id;
-        $insert_param['user_name']=$user_name;
-        $insert_param['user_password']=$user_pass;
-        $insert_param['user_email']=$user_email;
-        $insert_param['admin']=$insert_admin;
-        User::insert($insert_param);
+        //updateパラメータセット
+        unset($update_param['user_id']);
+        $update_param['user_name']=$user_name;
+        $update_param['user_pass']=$user_pass;
+        $update_param['user_email']=$user_email;
+
+        //追加部分
+        $update_param['admin']=$insert_admin;
+        
+        User::where('user_id',$user_id)->update($update_param);
 
         $request->session()->flash('update_message', 'ユーザを更新しました');
         

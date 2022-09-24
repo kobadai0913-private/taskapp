@@ -20,7 +20,8 @@
     @if(session('informationdelete_message'))
         <div class="alert alert-danger">{{session('informationdelete_message')}}</div>
     @endif 
-    <h5 class="card-header">インフォメーションボード</h5>
+    <details>
+        <summary class="card-header">インフォメーションボード</summary>
                     @foreach($informations as $information)
                         @if(($information->{$user_name.'_flg'})==false)
                                 <dl>
@@ -34,30 +35,57 @@
                                 </dl>
                         @endif
                     @endforeach
-    <h5 class="card-header">北海道コロナ情報　　　{{$date}}現在</h5>
-    <table class="table table-hover">
-            <thead>
-            <tr>
-                <th scope="col">感染者数</th>
-                <th scope="col">死亡者数</th>
-                <th scope="col">PCR検査数</th>
-                <th scope="col">入院患者数</th>
-                <th scope="col">退院数</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>{{$api[0]}}</td>
-                    <td>{{$api[1]}}</td>
-                    <td>{{$api[2]}}</td>
-                    <td>{{$api[3]}}</td>
-                    <td>{{$api[4]}}</td>
-                </tr>
-            </tbody>
-    </table> 
+    </details>
+    <details>
+        <summary class="card-header">北海道コロナ情報　　　{{$date}}現在</summary>
+            <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th scope="col">感染者数</th>
+                        <th scope="col">死亡者数</th>
+                        <th scope="col">PCR検査数</th>
+                        <th scope="col">入院患者数</th>
+                        <th scope="col">退院数</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{$api[0]}}</td>
+                            <td>{{$api[1]}}</td>
+                            <td>{{$api[2]}}</td>
+                            <td>{{$api[3]}}</td>
+                            <td>{{$api[4]}}</td>
+                        </tr>
+                    </tbody>
+            </table>
+    </details> 
         @if(session('admin') == 'admin')
             <h5 class="card-header">ユーザのタスクの一覧</h5>  
+            <details>
+                <summary class="card-header">北海道コロナ情報　　　{{$date}}現在</summary>
+                    <table class="table table-hover">
+                            <thead>
+                            <tr>
+                                <th scope="col">感染者数</th>
+                                <th scope="col">死亡者数</th>
+                                <th scope="col">PCR検査数</th>
+                                <th scope="col">入院患者数</th>
+                                <th scope="col">退院数</th>
+                                <th></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>{{$api[0]}}</td>
+                                    <td>{{$api[1]}}</td>
+                                    <td>{{$api[2]}}</td>
+                                    <td>{{$api[3]}}</td>
+                                    <td>{{$api[4]}}</td>
+                                </tr>
+                            </tbody>
+                    </table>
+            </details>
                 <table class="table table-hover">
                     <thead>
                     <tr>
@@ -105,6 +133,47 @@
                 </table>
         @else
             <h5 class="card-header">タスク一覧</h5>  
+            <details>
+                <summary class="card-header">絞り込み検索</summary>
+                <form action="/task/find" method="post">
+                    @csrf
+                    <table class="table table-hover">
+                            <tbody>
+                                <tr>
+                                    <td>タスクステータス</td>
+                                    <td>
+                                        <input type="checkbox" name="task_status_excess" value="true">未完了</input>
+                                    </td>
+                                    <td>
+                                        <input type="checkbox" name="task_status_complete" value="true">完了</input>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>日付</td>
+                                    <td>
+                                        <input type="checkbox" name="task_today_flg" value="true">今日</input>
+                                    </td>
+                                    <td>
+                                        <input type="checkbox" id="task_date_findflg" name="task_date_findflg" value="true"></input>
+                                        <input type="date" id="task_find_date" name="task_find_date" style="width: 190px;" value="{{old('task_find_date')}}" disabled>
+                                    </td>
+                                    <td>
+                                        <input type="checkbox" id="task_time_findflg" name="task_time_findflg" value="true"></input>
+                                        <input type="time"  id="task_find_time" name="task_find_time" style="width: 190px;" value="{{old('task_find_time')}}" disabled>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>タスク名</td>
+                                    <td>
+                                        <input type="checkbox" id="task_name_findflg" name="task_name_findflg" value="true"></input>
+                                        <input type="text"  id="task_find_name" name="task_find_name" style="width: 190px;" value="{{old('task_name_find')}}" placeholder="XXXXXXXX" disabled>
+                                    </td>
+                                </tr>
+                            </tbody>
+                    </table>
+                    <input type="submit" class="btn btn-primary" value="検索" style="margin: 20px;">
+                    </form>
+            </details>
             <table class="table table-hover">
                 <thead>
                 <tr>

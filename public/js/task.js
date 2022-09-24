@@ -80,6 +80,33 @@ $(function () {
       insert_document.disabled = false;
     }
   });
+  $('#task_date_findflg').click(function () {
+    if (document.getElementById('task_date_findflg').checked){
+        check_document = document.getElementById("task_find_date");   
+        check_document.disabled = false; 
+    } else {
+        check_document = document.getElementById("task_find_date");   
+        check_document.disabled = true; 
+    }
+  });
+  $('#task_time_findflg').click(function () {
+    if (document.getElementById('task_time_findflg').checked) {
+      check_document = document.getElementById("task_find_time");   
+      check_document.disabled = false; 
+    } else {
+      check_document = document.getElementById("task_find_time");   
+      check_document.disabled = true; 
+    }
+  });
+  $('#task_name_findflg').click(function () {
+    if (document.getElementById('task_name_findflg').checked) {
+      check_document = document.getElementById("task_find_name");   
+      check_document.disabled = false; 
+    } else {
+      check_document = document.getElementById("task_find_name");   
+      check_document.disabled = true; 
+    }
+  });
 });
 /******/ })()
 ;

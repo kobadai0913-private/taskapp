@@ -52,12 +52,15 @@
         <td><label for="name">権限</label>
         </td>
         <td>
-          @if($errors->has('admin'))
-          <div>
-            <div style="color:red">※{{$errors->first('admin')}}</div>
-          </div>
+        <div class="authority">
+          @if($user->admin=='admin')
+            <input type="radio" name="authority" value="user_authority">ユーザ</input>
+            <input type="radio" name="authority" value="admin_authority" checked>管理者</input>
+          @else
+            <input type="radio" name="authority" value="user_authority" checked>ユーザ</input>
+            <input type="radio" name="authority" value="admin_authority">管理者</input>
           @endif
-          <input type="text" name="admin" value={{$user->admin}}>
+        </div>
         </td>
       </tr>
       @endforeach

@@ -19,12 +19,12 @@
     </div>
     <div class="form-item">
       <label for="user_password">パスワード</label>
-        @if($errors->has('user_password'))
+        @if($errors->has('user_pass'))
           <div>
-            <div style="color:red">※{{$errors->first('user_password')}}</div>
+            <div style="color:red">※{{$errors->first('user_pass')}}</div>
           </div>
         @endif
-      <input type="password" name="user_password" value="{{old('user_password')}}"></input>
+      <input type="password" name="user_pass" value="{{old('user_pass')}}"></input>
     </div>
     <div class="form-item">
         <label for="user_email">メールアドレス</label>

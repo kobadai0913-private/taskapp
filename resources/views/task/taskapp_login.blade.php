@@ -13,7 +13,7 @@
     @csrf
     <div class="form-item">
       <label for="email">E-Mail</label>
-      @if($errors->has('email'))
+      @if($errors->has('user_email'))
           <div>
             <div style="color:red">※{{$errors->first('user_email')}}</div>
           </div>
@@ -22,12 +22,12 @@
     </div>
     <div class="form-item">
       <label for="password">Password</label>
-        @if($errors->has('password'))
+        @if($errors->has('user_pass'))
           <div>
-            <div style="color:red">※{{$errors->first('password')}}</div>
+            <div style="color:red">※{{$errors->first('user_pass')}}</div>
           </div>
         @endif
-      <input type="password" name="user_password" value="{{old('user_password')}}"></input>
+      <input type="password" name="user_pass" value="{{old('user_pass')}}"></input>
     </div>
     <div class="button-panel">
       <input type="submit" class="button" value="ログイン"></input>
