@@ -195,7 +195,7 @@
                     @elseif($task->completed == "today_incomplete")
                         <tr class="successd">
                             <td></td>
-                            <td><a href="/task/detail/{{$task->task_id}}">{{ $task->task_name }}</a></td>
+                            <td><a href="/task/detail/{{$task->task_id}}">　{{ $task->task_name }}</a></td>
                             <td>{{ $task->task_start_datetime }}</td>
                             <td>{{ $task->task_end_datetime }}</td>
                         </tr>
@@ -209,7 +209,7 @@
                     @else
                         <tr>
                             <td></td>
-                            <td><a href="/task/detail/{{$task->task_id}}">{{ $task->task_name }}</a></td>
+                            <td><a href="/task/detail/{{$task->task_id}}">　{{ $task->task_name }}</a></td>
                             <td>{{ $task->task_start_datetime }}</td>
                             <td>{{ $task->task_end_datetime }}</td>
                         </tr>
