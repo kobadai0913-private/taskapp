@@ -11324,6 +11324,10 @@ h3, .h3 {
   text-align: center;
 }
 
+.task{
+  text-align: left;
+}
+
 .information {
   padding-left: 100px;
   /* 左側に空白を調整する */
@@ -11359,10 +11363,6 @@ dd {
   margin: 0 20px;
   padding: 5px 15px;
   text-decoration: none;
-}
-
-table {
-  text-align: center;
 }
 
 .textlines {
