@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 use App\Model\Task;
 use App\Model\User;
@@ -351,6 +352,8 @@ class TaskController extends Controller
 
     //タスク一覧(get)
     public function taskapp_list(Request $request){
+        $test = $request->push_search;
+        log::info($test);
 
         //タスク日付カウンター削除
         $request->session()->forget('task_start_datetime_counter');
@@ -402,7 +405,6 @@ class TaskController extends Controller
 
     //タスクデータ取得
     public function task_createlist(Request $request,$user_id,$user_admin){
-        
         //絞り込み検索処理
         //checkbox内容取得
         //タスクステータス
@@ -663,16 +665,22 @@ class TaskController extends Controller
                     $task_total_items = $task_work_items;
                 }
                 $items = collect($task_total_items);
+                $items = new LengthAwarePaginator(
+                    $items->forPage($request->page,2),
+                    count($items),
+                    2,
+                    $request->page,
+                    array('path'=>$request->url()));
             }
         }else{
             if($user_admin == "admin"){
                 $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
                                 ->orderby('user_id','asc')
-                                ->get();
+                                ->paginate(3);
             }else{
                 $items = Task::select('task_id','task_name','task_detail',Task::raw('date_format(task_start_datetime,"%Y年%m月%d日 %k時%i分") as task_start_datetime'),Task::raw('date_format(task_end_datetime,"%Y年%m月%d日 %k時%i分") as task_end_datetime'),'user_id','completed')
                                 ->where('user_id',$user_id)
-                                ->get();
+                                ->paginate(3);
             }
         }
         return $items;
@@ -792,8 +800,8 @@ class TaskController extends Controller
         $request->session()->put('admin', $user_admin);
         $request->session()->put('admin_flg', false);
        
-        //タスク一覧画面遷移
-        return self::taskapp_list($request);
+        //タスク一覧画面に遷移
+        return redirect('/task/app');
     }
 
     //新規会員登録(get)

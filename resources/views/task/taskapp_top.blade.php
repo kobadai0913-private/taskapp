@@ -171,7 +171,7 @@
                                 </tr>
                             </tbody>
                     </table>
-                    <input type="submit" class="btn btn-primary" value="検索" style="margin: 20px;">
+                    <input type="submit" name="push_search" class="btn btn-primary" value="検索" style="margin: 20px;">
                     </form>
             </details>
             <table class="table table-hover">
@@ -218,6 +218,7 @@
                 </tbody>
             </table>
         @endif
+        {{$tasks->appends(request()->input())->render()}}
     @if(session('admin') != 'admin')
         <a class="btn btn-primary" href="/task/add" role="button" style="margin: 20px;">タスクを追加する</a>
     @endif

@@ -15,6 +15,7 @@
         <script src="https://npmcdn.com/flatpickr/dist/flatpickr.min.js"></script>
         <!-- 日本語化のための追加スクリプト -->
         <script src="https://npmcdn.com/flatpickr/dist/l10n/ja.js"></script>
+        <link href="/css/app.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">  
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
