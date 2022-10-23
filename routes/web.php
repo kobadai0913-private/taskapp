@@ -213,3 +213,6 @@ Route::get('information/detail/{information_id?}', 'App\Http\Controllers\Informa
 //task絞り込み検索
 Route::get('task/find', 'App\Http\Controllers\TaskController@task_find');
 Route::post('task/find', 'App\Http\Controllers\TaskController@task_find');
+
+//カメラ起動
+Route::get('task/camera', 'App\Http\Controllers\TaskController@camera_set');

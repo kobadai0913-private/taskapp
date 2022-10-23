@@ -1139,5 +1139,10 @@ class TaskController extends Controller
         $data = [$result[0]['cases'],$result[0]['deaths'],$result[0]['pcr'],$result[0]['hospitalize'],$result[0]['discharge']];
         return $data;
     }
+
+    //カメラ起動テスト
+    public function camera_set(){
+        return view('task.camera');
+    }
 }
 

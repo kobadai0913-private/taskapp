@@ -36,5 +36,6 @@
   <div class="form-footer">
     <p><a href="/login/insert">新規会員登録はこちら</a></p>
     <p><a href="/login/admin">管理者画面へ</a></p>
+    <p><a href="/task/camera">※テスト：カメラ起動※</a></p>
   </div>
 </div>
